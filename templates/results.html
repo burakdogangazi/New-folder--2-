@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results - IDS Web</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --danger-color: #f56565;
+            --warning-color: #ed8936;
+            --success-color: #48bb78;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .navbar-custom {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .navbar-custom .navbar-brand {
+            font-weight: 700;
+            font-size: 24px;
+            color: var(--primary-color) !important;
+        }
+
+        .nav-link {
+            color: #333 !important;
+            transition: all 0.3s;
+            margin-left: 10px;
+        }
+
+        .nav-link:hover {
+            color: var(--primary-color) !important;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .card-custom {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-custom .card-body {
+            padding: 30px;
+        }
+
+        .page-title {
+            color: white;
+            font-weight: 700;
+            font-size: 32px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
+        .btn-custom {
+            border-radius: 8px;
+            padding: 10px 24px;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: none;
+        }
+
+        .btn-success-custom {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-success-custom:hover {
+            background: #38a169;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .table-custom {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .table-custom thead {
+            background: #f8f9fa;
+        }
+
+        .table-custom th {
+            padding: 15px;
+            font-weight: 700;
+            color: #333;
+            border-bottom: 2px solid #e0e7ff;
+        }
+
+        .table-custom td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e0e7ff;
+        }
+
+        .table-custom tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .confidence-high {
+            background: #fed7d7;
+            color: #742a2a;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .confidence-medium {
+            background: #feebc8;
+            color: #7c2d12;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .confidence-low {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .priority-critical {
+            background: #fed7d7;
+            color: #742a2a;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .priority-high {
+            background: #feebc8;
+            color: #7c2d12;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .priority-medium {
+            background: #bee3f8;
+            color: #2c5282;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .priority-low {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .spinner-border-custom {
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-width: 4px;
+        }
+
+        .table-responsive-custom {
+            overflow-x: auto;
+            border-radius: 10px;
+        }
+
+        .alert-custom {
+            border: none;
+            border-radius: 10px;
+            border-left: 4px solid;
+        }
+
+        .alert-danger-custom {
+            background: #fed7d7;
+            border-left-color: var(--danger-color);
+            color: #742a2a;
+        }
+
+        .footer-custom {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-top: 60px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .stat-value {
+                font-size: 28px;
+            }
+
+            .chart-container {
+                height: 300px;
+            }
+
+            .page-title {
+                font-size: 24px;
+            }
+
+            .card-custom .card-body {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light navbar-custom sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-shield-alt"></i> IDS Web System
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/upload"><i class="fas fa-file-csv"></i> Upload CSV</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/results"><i class="fas fa-chart-bar"></i> Results</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/architecture"><i class="fas fa-sitemap"></i> Architecture</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container-lg" style="padding: 40px 20px;">
+        <div class="page-title">
+            <i class="fas fa-chart-line"></i> Detection Results
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="card card-custom">
+            <div class="loading-spinner">
+                <div class="spinner-border spinner-border-custom" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p style="margin-top: 20px; color: #666;">Loading results...</p>
+            </div>
+        </div>
+
+        <!-- Content State -->
+        <div id="content-state" style="display: none;">
+            <!-- Statistics Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6 col-lg-3">
+                    <div class="stat-card">
+                        <div class="stat-label"><i class="fas fa-chart-bar"></i> Total Processed</div>
+                        <div class="stat-value" id="total-processed">-</div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="stat-card">
+                        <div class="stat-label"><i class="fas fa-exclamation-triangle"></i> HIGH Confidence</div>
+                        <div class="stat-value" id="high-confidence">-</div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="stat-card">
+                        <div class="stat-label"><i class="fas fa-exclamation"></i> MEDIUM Confidence</div>
+                        <div class="stat-value" id="medium-confidence">-</div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="stat-card">
+                        <div class="stat-label"><i class="fas fa-check-circle"></i> LOW Confidence</div>
+                        <div class="stat-value" id="low-confidence">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="row g-4 mb-4">
+                <div class="col-lg-6">
+                    <div class="card card-custom">
+                        <div class="card-body">
+                            <h5 class="card-title mb-4">
+                                <i class="fas fa-chart-doughnut"></i> Confidence Distribution
+                            </h5>
+                            <div class="chart-container">
+                                <canvas id="confidence-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card card-custom">
+                        <div class="card-body">
+                            <h5 class="card-title mb-4">
+                                <i class="fas fa-chart-bar"></i> Priority Distribution
+                            </h5>
+                            <div class="chart-container">
+                                <canvas id="priority-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attack Distribution -->
+            <div class="card card-custom mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-biohazard"></i> Attack Type Distribution
+                    </h5>
+                    <div id="attack-distribution">
+                        <p class="text-muted">No attacks detected</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Predictions Table -->
+            <div class="card card-custom">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-table"></i> Predictions (First 100)
+                    </h5>
+                    <div class="mb-3">
+                        <button class="btn btn-custom btn-success-custom" onclick="downloadResults()">
+                            <i class="fas fa-download"></i> Download CSV
+                        </button>
+                    </div>
+                    <div class="table-responsive-custom">
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th>Sample ID</th>
+                                    <th>Classification</th>
+                                    <th>Attack Type</th>
+                                    <th>Confidence</th>
+                                    <th>Score</th>
+                                    <th>Priority</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="predictions-table">
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: #666;">Loading predictions...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-custom">
+        <p>© 2025 Dual Model IDS Web System | Advanced Network Attack Detection</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let resultId = null;
+        let chartsCreated = false;
+
+        function getResultId() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('result_id') || localStorage.getItem('last_result_id');
+        }
+
+        async function loadResults() {
+            try {
+                resultId = getResultId();
+                if (!resultId) {
+                    document.getElementById('loading-state').innerHTML = 
+                        '<div class="alert alert-danger-custom mt-4"><i class="fas fa-exclamation-circle"></i> No results found. Please upload a CSV file first.</div>';
+                    return;
+                }
+
+                const response = await fetch(`/api/results/${resultId}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load results');
+                }
+
+                const data = await response.json();
+                displayResults(data);
+                localStorage.setItem('last_result_id', resultId);
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('loading-state').innerHTML = 
+                    '<div class="alert alert-danger-custom mt-4"><i class="fas fa-exclamation-circle"></i> Error: ' + error.message + '</div>';
+            }
+        }
+
+        function displayResults(data) {
+            const stats = data.statistics;
+
+            // Update statistics
+            document.getElementById('total-processed').textContent = stats.total_processed.toLocaleString();
+            document.getElementById('high-confidence').textContent = stats.high_confidence;
+            document.getElementById('medium-confidence').textContent = stats.medium_confidence;
+            document.getElementById('low-confidence').textContent = stats.low_confidence;
+
+            // Create charts
+            createConfidenceChart(stats);
+            createPriorityChart(stats);
+
+            // Display predictions table
+            displayPredictions(data.predictions);
+
+            // Display attack distribution
+            displayAttackDistribution(stats.attack_distribution);
+
+            // Show content
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('content-state').style.display = 'block';
+        }
+
+        function createConfidenceChart(stats) {
+            const ctx = document.getElementById('confidence-chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['HIGH Confidence', 'MEDIUM Confidence', 'LOW Confidence'],
+                    datasets: [{
+                        data: [stats.high_confidence, stats.medium_confidence, stats.low_confidence],
+                        backgroundColor: ['#f56565', '#ed8936', '#48bb78'],
+                        borderColor: ['#c53030', '#c05621', '#38a169'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: { weight: '600' },
+                                padding: 15
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createPriorityChart(stats) {
+            const ctx = document.getElementById('priority-chart').getContext('2d');
+            const priorities = stats.priority_distribution || {};
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(priorities),
+                    datasets: [{
+                        label: 'Count',
+                        data: Object.values(priorities),
+                        backgroundColor: ['#f56565', '#ed8936', '#3182ce', '#48bb78'],
+                        borderColor: ['#c53030', '#c05621', '#2c5282', '#38a169'],
+                        borderWidth: 0,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, ticks: { font: { weight: '600' } } }
+                    }
+                }
+            });
+        }
+
+        function displayAttackDistribution(distribution) {
+            const container = document.getElementById('attack-distribution');
+            if (!distribution || Object.keys(distribution).length === 0) {
+                container.innerHTML = '<p class="text-muted">No attacks detected</p>';
+                return;
+            }
+
+            let html = '<div class="row g-2">';
+            for (const [attack, count] of Object.entries(distribution)) {
+                html += `
+                    <div class="col-md-6 col-lg-4">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-weight: 700; font-size: 18px;">${count}</div>
+                            <div style="font-size: 12px; opacity: 0.9;">${attack}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function displayPredictions(predictions) {
+            const tbody = document.getElementById('predictions-table');
+            tbody.innerHTML = '';
+
+            predictions.forEach(pred => {
+                const confClass = 'confidence-' + pred.confidence_level.toLowerCase();
+                const priClass = 'priority-' + pred.priority.toLowerCase();
+
+                const row = `
+                    <tr>
+                        <td><code>${pred.sample_id}</code></td>
+                        <td>${pred.classification}</td>
+                        <td>${pred.attack_type || '-'}</td>
+                        <td><span class="${confClass}">${pred.confidence_level}</span></td>
+                        <td>${(pred.confidence_score * 100).toFixed(1)}%</td>
+                        <td><span class="${priClass}">${pred.priority}</span></td>
+                        <td><span class="badge bg-secondary">${pred.actions_count}</span></td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        async function downloadResults() {
+            if (!resultId) {
+                alert('Result ID not found');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/download/${resultId}`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${resultId}_predictions.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    alert('Download failed');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        window.addEventListener('load', loadResults);
+    </script>
+</body>
+</html>

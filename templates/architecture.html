@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture - IDS Web</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .navbar-custom {
+            background: rgba(255, 255, 255, 0.95) !important;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .navbar-custom .navbar-brand {
+            font-weight: 700;
+            color: var(--primary-color) !important;
+        }
+
+        .nav-link {
+            color: #333 !important;
+            margin-left: 10px;
+        }
+
+        .nav-link:hover {
+            color: var(--primary-color) !important;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .page-title {
+            color: white;
+            font-weight: 700;
+            font-size: 32px;
+            margin-bottom: 30px;
+        }
+
+        .card-custom {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .card-custom .card-body {
+            padding: 30px;
+        }
+
+        .code-block {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid var(--primary-color);
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+
+        .footer-custom {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-top: 60px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        h3 {
+            color: var(--primary-color);
+            font-weight: 700;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        h4 {
+            color: #333;
+            font-weight: 700;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: #555;
+            line-height: 1.8;
+        }
+
+        .pipeline-step {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .step-number {
+            background: var(--primary-color);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            margin-right: 20px;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 768px) {
+            .page-title {
+                font-size: 24px;
+            }
+
+            .card-custom .card-body {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light navbar-custom sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-shield-alt"></i> IDS Web System
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/upload"><i class="fas fa-file-csv"></i> Upload CSV</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/results"><i class="fas fa-chart-bar"></i> Results</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/architecture"><i class="fas fa-sitemap"></i> Architecture</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container-lg" style="padding: 40px 20px; max-width: 1200px;">
+        <div class="page-title">
+            <i class="fas fa-cube"></i> System Architecture
+        </div>
+
+        <!-- Overview Card -->
+        <div class="card card-custom">
+            <div class="card-body">
+                <h3><i class="fas fa-diagram-project"></i> Overview</h3>
+                <p>
+                    The Dual Model IDS Web System implements a two-stage attack detection pipeline with confidence-based 
+                    routing. Network traffic is first classified as benign or attack, then attack type is identified. 
+                    Confidence scores determine the response actions (blocking, alerting, logging).
+                </p>
+
+                <h4>Processing Pipeline</h4>
+                <div class="pipeline-step">
+                    <div class="step-number">1</div>
+                    <div>
+                        <strong>Data Upload:</strong> Network traffic CSV files are uploaded through the web interface
+                    </div>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-number">2</div>
+                    <div>
+                        <strong>Preprocessing:</strong> Data is loaded, validated, and prepared for feature extraction
+                    </div>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-number">3</div>
+                    <div>
+                        <strong>Stage 1 - Binary Classification:</strong> Determines if traffic is benign or attack
+                    </div>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-number">4</div>
+                    <div>
+                        <strong>Stage 2 - Multiclass Classification:</strong> If attack detected, identifies attack type
+                    </div>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-number">5</div>
+                    <div>
+                        <strong>Confidence Routing:</strong> Confidence scores determine response actions
+                    </div>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-number">6</div>
+                    <div>
+                        <strong>Results Display:</strong> Visualize predictions with charts and detailed statistics
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confidence Levels Card -->
+        <div class="card card-custom">
+            <div class="card-body">
+                <h3><i class="fas fa-chart-pie"></i> Confidence-Based Routing</h3>
+                <p>
+                    The system uses three confidence levels to determine response actions:
+                </p>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div style="background: #fed7d7; padding: 20px; border-radius: 10px; border-left: 4px solid #f56565;">
+                            <h5 style="color: #742a2a; font-weight: 700;">HIGH (>85%)</h5>
+                            <ul style="color: #742a2a; font-size: 14px;">
+                                <li>Immediate blocking</li>
+                                <li>SIEM alerts</li>
+                                <li>P1 incident ticket</li>
+                                <li>SOC notification</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="background: #feebc8; padding: 20px; border-radius: 10px; border-left: 4px solid #ed8936;">
+                            <h5 style="color: #7c2d12; font-weight: 700;">MEDIUM (60-85%)</h5>
+                            <ul style="color: #7c2d12; font-size: 14px;">
+                                <li>Rate limiting</li>
+                                <li>Analyst queue</li>
+                                <li>Sandbox analysis</li>
+                                <li>Threat enrichment</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="background: #c6f6d5; padding: 20px; border-radius: 10px; border-left: 4px solid #48bb78;">
+                            <h5 style="color: #22543d; font-weight: 700;">LOW (<60%)</h5>
+                            <ul style="color: #22543d; font-size: 14px;">
+                                <li>Routine logging</li>
+                                <li>Sampling</li>
+                                <li>Retraining dataset</li>
+                                <li>No impact</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Models Card -->
+        <div class="card card-custom">
+            <div class="card-body">
+                <h3><i class="fas fa-brain"></i> Machine Learning Models</h3>
+                
+                <h4>Binary Classification Models</h4>
+                <p>6 different models trained for benign vs. attack classification:</p>
+                <ul>
+                    <li><strong>Logistic Regression:</strong> Baseline linear classifier</li>
+                    <li><strong>K-Nearest Neighbors:</strong> Instance-based learning</li>
+                    <li><strong>Naive Bayes:</strong> Probabilistic classifier</li>
+                    <li><strong>Decision Tree:</strong> Tree-based classifier</li>
+                    <li><strong>Random Forest:</strong> Ensemble method</li>
+                    <li><strong>Support Vector Machine:</strong> Kernel-based classifier</li>
+                </ul>
+
+                <h4>Multiclass Classification Models</h4>
+                <p>Same 6 models trained to identify specific attack types (DoS, Probe, R2L, U2R, etc.)</p>
+
+                <h4>Feature Engineering</h4>
+                <p>
+                    <strong>PCA (Principal Component Analysis):</strong> Reduces 100+ network traffic features 
+                    to 40-50 principal components (95% variance retention)
+                </p>
+                <p>
+                    <strong>Scaling:</strong> StandardScaler normalization ensures features are on similar scales
+                </p>
+            </div>
+        </div>
+
+        <!-- Integration Points Card -->
+        <div class="card card-custom">
+            <div class="card-body">
+                <h3><i class="fas fa-plug"></i> Integration Points</h3>
+                <p>The system can integrate with various enterprise security tools:</p>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <h5 style="color: var(--primary-color); font-weight: 700;">SIEM Systems</h5>
+                        <p style="font-size: 14px;">Splunk, ELK Stack, ArcSight, Sumo Logic</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 style="color: var(--primary-color); font-weight: 700;">Firewalls</h5>
+                        <p style="font-size: 14px;">Palo Alto Networks, F5, pfSense, Cisco ASA</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 style="color: var(--primary-color); font-weight: 700;">Ticketing Systems</h5>
+                        <p style="font-size: 14px;">Jira, ServiceNow, BMC Remedy</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 style="color: var(--primary-color); font-weight: 700;">Threat Intelligence</h5>
+                        <p style="font-size: 14px;">AlienVault OTX, Shodan, IP Reputation APIs</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Technology Stack Card -->
+        <div class="card card-custom">
+            <div class="card-body">
+                <h3><i class="fas fa-code"></i> Technology Stack</h3>
+                
+                <h4>Backend</h4>
+                <ul>
+                    <li><strong>Flask:</strong> Python web framework</li>
+                    <li><strong>Pandas:</strong> Data manipulation and analysis</li>
+                    <li><strong>Scikit-learn:</strong> Machine learning library</li>
+                    <li><strong>Joblib:</strong> Model serialization</li>
+                </ul>
+
+                <h4>Frontend</h4>
+                <ul>
+                    <li><strong>Bootstrap 5:</strong> Responsive UI framework</li>
+                    <li><strong>Chart.js:</strong> Data visualization</li>
+                    <li><strong>Font Awesome:</strong> Icon library</li>
+                    <li><strong>HTML5/CSS3/JavaScript:</strong> Web standards</li>
+                </ul>
+
+                <h4>Deployment</h4>
+                <ul>
+                    <li>Python 3.10+</li>
+                    <li>Flask development/production server</li>
+                    <li>CSV file storage (uploads/results folders)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-custom">
+        <p>© 2025 Dual Model IDS Web System | Advanced Network Attack Detection Architecture</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

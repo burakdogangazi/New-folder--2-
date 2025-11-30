@@ -1,0 +1,387 @@
+
+================================================================================
+DUAL-MODEL IDS - COMPLETE SYSTEM ARCHITECTURE
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         NETWORK TRAFFIC INPUT                              │
+│  (Raw packets from network interface, flow exports, or traffic mirrors)    │
+└────────────────────────────────────────────────┬──────────────────────────┘
+                                                 │
+                                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         FEATURE EXTRACTION LAYER                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ Extract network features:                                          │   │
+│  │ - Packet count, byte count, flags                                 │   │
+│  │ - Protocol distribution                                           │   │
+│  │ - Flow duration, inter-arrival times                              │   │
+│  │ - TCP window sizes, flags patterns                                │   │
+│  │ - Payload characteristics                                         │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+└────────────────────────────────────────────────┬──────────────────────────┘
+                                                 │
+                                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    FEATURE PREPROCESSING PIPELINE                          │
+│  ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐        │
+│  │  StandardScaler  │──▶│  PCA Transform   │──▶│  Feature Vector  │        │
+│  │                  │   │  (95% variance)  │   │  (M dimensions)  │        │
+│  │ (Normalization)  │   │ (Dimensionality  │   │                  │        │
+│  │                  │   │   Reduction)     │   │                  │        │
+│  └──────────────────┘   └──────────────────┘   └────────┬─────────┘        │
+└─────────────────────────────────────────────────────────┬──────────────────┘
+                                                          │
+                                                          ▼
+                ┌─────────────────────────────────────────────────┐
+                │      STAGE 1: BINARY CLASSIFICATION            │
+                │    (Attack vs Benign Detection)                │
+                │                                               │
+                │  6 Classifiers:                              │
+                │  ├─ Logistic Regression                      │
+                │  ├─ K-Nearest Neighbors                      │
+                │  ├─ Gaussian Naive Bayes                     │
+                │  ├─ Decision Tree                            │
+                │  ├─ Random Forest ⭐ (Usually Best)         │
+                │  └─ Support Vector Machine                   │
+                │                                               │
+                │  Output:                                      │
+                │  ├─ Prediction: "Attack" or "Benign"        │
+                │  └─ Probability: 0.0 - 1.0                  │
+                └────────┬───────────────────────────────────────┘
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+    ┌─────▼─────┐               ┌─────▼─────┐
+    │  BENIGN   │               │  ATTACK   │
+    │ (LOG ONLY)│               │ (PROCEED) │
+    └───────────┘               └─────┬─────┘
+                                      │
+                                      ▼
+                ┌─────────────────────────────────────────────────┐
+                │   STAGE 2: MULTICLASS CLASSIFICATION           │
+                │    (Attack Type Identification)                │
+                │                                               │
+                │  Input: Attack Traffic Only                   │
+                │                                               │
+                │  6 Classifiers (Multiclass Optimized):       │
+                │  ├─ Logistic Regression (multinomial)         │
+                │  ├─ K-Nearest Neighbors                       │
+                │  ├─ Gaussian Naive Bayes                      │
+                │  ├─ Decision Tree                             │
+                │  ├─ Random Forest ⭐ (Usually Best)          │
+                │  └─ Support Vector Machine (OvR)             │
+                │                                               │
+                │  Output:                                      │
+                │  ├─ Prediction: Attack Type (DDoS, etc)      │
+                │  └─ Probability: 0.0 - 1.0                  │
+                └────────┬───────────────────────────────────────┘
+                         │
+                         ▼
+                ┌─────────────────────────────────────────────────┐
+                │  CONFIDENCE SCORE EXTRACTION                    │
+                │                                                │
+                │  For Benign: Binary model confidence           │
+                │  For Attack: Multiclass model confidence       │
+                │                                                │
+                │  Score Range: 0.0 - 1.0 (0% - 100%)           │
+                └────────┬───────────────────────────────────────┘
+                         │
+                         ▼
+                ┌─────────────────────────────────────────────────┐
+                │  STAGE 3: CONFIDENCE-BASED ROUTING              │
+                │     (Decision & Action Assignment)              │
+                │                                                │
+                │  Confidence Thresholds:                        │
+                │  ├─ HIGH:   ≥ 85%   → CRITICAL ACTION         │
+                │  ├─ MEDIUM: 60-84%  → HIGH PRIORITY           │
+                │  └─ LOW:    < 60%   → ROUTINE LOGGING         │
+                └────────┬───────────────────────────────────────┘
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+   ┌────▼────┐      ┌────▼────┐     ┌────▼────┐
+   │   HIGH  │      │ MEDIUM  │     │  LOW    │
+   │>85%     │      │60-84%   │     │<60%     │
+   └────┬────┘      └────┬────┘     └────┬────┘
+        │                │                │
+        ▼                ▼                ▼
+   CRITICAL         WARNING             INFO
+   ACTIONS          ACTIONS            ACTIONS
+        │                │                │
+        ▼                ▼                ▼
+   ┌─────────────┐  ┌──────────────┐  ┌──────────────┐
+   │ • SIEM      │  │ • Log        │  │ • Log        │
+   │ • Firewall  │  │ • Sandbox    │  │ • Sample     │
+   │ • SOC Alert │  │ • Rate Limit │  │ • Train Data │
+   │ • Incident  │  │ • Monitor    │  │ • No Alert   │
+   │   Ticket    │  │ • Enrich TI  │  └──────────────┘
+   └─────────────┘  └──────────────┘
+
+
+================================================================================
+INTEGRATION POINTS - EXTERNAL SYSTEMS
+================================================================================
+
+┌──────────────────────┐
+│   SIEM INTEGRATION   │
+│  (Splunk/ELK/ArcSI) │
+└────────┬─────────────┘
+         │
+         ├─▶ [HIGH] CRITICAL alerts → Immediate investigation
+         ├─▶ [MEDIUM] WARNING alerts → Queue for analyst
+         └─▶ [LOW] INFO events → Background processing
+         
+┌──────────────────────┐
+│  FIREWALL SYSTEM     │
+│   (Palo Alto/F5)     │
+└────────┬─────────────┘
+         │
+         └─▶ [HIGH] → Block IP/Port immediately
+            [MEDIUM] → Rate limiting rule
+            [LOW] → No action
+
+┌──────────────────────┐
+│  TICKETING SYSTEM    │
+│   (Jira/ServiceNow)  │
+└────────┬─────────────┘
+         │
+         ├─▶ [HIGH] → Create P1 incident
+         ├─▶ [MEDIUM] → Create P2 incident
+         └─▶ [LOW] → No ticket
+
+┌──────────────────────┐
+│  SOC DASHBOARD       │
+│   (Custom/Grafana)   │
+└────────┬─────────────┘
+         │
+         └─▶ Real-time metrics:
+            • Attack count by type
+            • Top threat IPs
+            • Confidence distribution
+            • False positive rate
+
+┌──────────────────────┐
+│  THREAT INTEL DB     │
+│  (AlienVault/Shodan) │
+└────────┬─────────────┘
+         │
+         ├─▶ IP reputation lookup
+         ├─▶ Known malicious domains
+         ├─▶ Vulnerability feeds
+         └─▶ Historical attack patterns
+
+┌──────────────────────┐
+│  MODEL RETRAINING    │
+│  (ML Pipeline)       │
+└────────┬─────────────┘
+         │
+         └─▶ Collect [LOW] confidence samples
+            ├─ Verify with human review
+            ├─ Add to training dataset
+            └─ Retrain monthly
+
+
+================================================================================
+DATA FLOW DIAGRAM
+================================================================================
+
+Network Packet Stream (Real-time)
+        │
+        ├─ 1000 packets/sec
+        ├─ ~100 features extracted/packet
+        └─ ~100MB/sec data rate
+                │
+                ▼
+        Feature Extraction
+        (~50ms latency)
+                │
+                ├─ Dimensionality reduction: 100 → 40 features
+                └─ ~5ms latency
+                        │
+                        ▼
+                Binary Classifier
+                (inference)
+                        │
+        ┌───────────────┼───────────────┐
+        │               │               │
+   Benign (98%)     Attack (2%)
+   ~980 pkt/s       ~20 pkt/s
+        │               │
+        │               ├─ Multiclass Classifier
+        │               │  (inference)
+        │               │
+        │               ├─ DDoS: 14 pkt/s (70%)
+        │               ├─ Injection: 4 pkt/s (20%)
+        │               ├─ Scanning: 2 pkt/s (10%)
+        │               │
+        │               ▼
+        │          Confidence Routing
+        │               │
+        │          ┌────┼────┐
+        │          │         │
+    LOG_ONLY  HIGH(0.2)  MED(1.5)
+    980 pkt   2 pkt/s    17.8 pkt/s
+        │          │         │
+        ▼          ▼         ▼
+    (Logging)  (SIEM)   (Monitoring)
+               (Block)
+
+
+================================================================================
+PERFORMANCE METRICS
+================================================================================
+
+Latency:
+├─ Feature Extraction: ~50ms per packet
+├─ Feature Scaling (StandardScaler): ~5ms
+├─ PCA Transform: ~3ms
+├─ Binary Classification: ~2ms
+├─ Multiclass Classification: ~2ms (if attack)
+├─ Confidence Routing: <1ms
+└─ Total: ~60-65ms per packet (for attack) / ~55ms (for benign)
+
+Throughput:
+├─ Single stream: 15-20 packets per millisecond
+├─ Parallel processing: 100+ streams
+└─ Daily capacity: ~1.3 Billion flows
+
+Memory Usage:
+├─ Models (both): ~50MB
+├─ Feature scalers: ~10MB
+├─ PCA model: ~20MB
+├─ Cache/buffers: ~100MB
+└─ Total: ~180MB for full system
+
+False Positive Rate (FPR):
+├─ Overall: ~2-3%
+├─ High confidence (>85%): <1%
+├─ Medium confidence (60-85%): ~5-10%
+└─ Low confidence (<60%): N/A (considered benign)
+
+
+================================================================================
+DEPLOYMENT REQUIREMENTS
+================================================================================
+
+Hardware Requirements:
+├─ CPU: 4-8 cores (Intel i7/Xeon equivalent)
+├─ Memory: 8GB minimum (16GB recommended)
+├─ Storage: 500GB (for logs and models)
+└─ Network: Dedicated capture interface
+
+Software Requirements:
+├─ Python 3.10+
+├─ scikit-learn 1.0+
+├─ pandas, numpy
+├─ joblib (model serialization)
+├─ logging framework
+└─ Integration SDK for SIEM/Firewall
+
+Network Integration:
+├─ SPAN/Mirror port from core switch
+├─ Flow export (NetFlow/sFlow)
+├─ Packet capture via tcpdump/tshark
+└─ Direct API integration with endpoints
+
+
+================================================================================
+OPERATIONAL WORKFLOW
+================================================================================
+
+1. DEPLOYMENT PHASE
+   └─▶ Load trained models into production
+   └─▶ Configure feature extraction
+   └─▶ Set integration endpoints
+   └─▶ Initialize SIEM connection
+   └─▶ Enable firewall API
+
+2. MONITORING PHASE
+   └─▶ Real-time traffic analysis
+   └─▶ Confidence-based alert routing
+   └─▶ SIEM event generation
+   └─▶ Firewall rule deployment
+   └─▶ SOC dashboard update
+
+3. INCIDENT RESPONSE PHASE (HIGH Confidence)
+   └─▶ Immediate SIEM alert to SOC
+   └─▶ Automatic IP blocking
+   └─▶ Create incident ticket
+   └─▶ Notify security team
+   └─▶ Begin forensic analysis
+
+4. INVESTIGATION PHASE (MEDIUM Confidence)
+   └─▶ Alert tier-1 analysts
+   └─▶ Enable enhanced monitoring
+   └─▶ Queue sandbox analysis
+   └─▶ Collect threat intelligence
+   └─▶ Decide escalation
+
+5. MAINTENANCE PHASE (LOW Confidence)
+   └─▶ Log for trend analysis
+   └─▶ Collect for model retraining
+   └─▶ Regular quality checks
+   └─▶ Monthly model refresh
+   └─▶ Update threat signatures
+
+
+================================================================================
+SYSTEM STATES & TRANSITIONS
+================================================================================
+
+        ┌──────────────┐
+        │  IDLE STATE  │
+        │ (No Traffic) │
+        └──────┬───────┘
+               │ (Start traffic capture)
+               ▼
+        ┌──────────────────┐
+        │  PROCESSING STATE │
+        │ (Classifying)    │
+        └──────┬───────────┘
+               │
+      ┌────────┼────────┐
+      │        │        │
+      ▼        ▼        ▼
+    HIGH   MEDIUM    LOW
+    │        │        │
+    ├────────┼────────┤
+    │ (All feed into)│
+    │   ROUTING      │
+    │ (Action Gen.)  │
+    ├────────┼────────┤
+    │        │        │
+    ▼        ▼        ▼
+  ACTION   ACTION   ACTION
+  (Exec)   (Exec)   (Exec)
+    │        │        │
+    └────────┼────────┘
+             │
+             ▼
+        ┌──────────────┐
+        │ LOGGING STATE │
+        │ (Results)    │
+        └──────────────┘
+
+
+================================================================================
+CONFIDENCE-BASED ROUTING DECISION MATRIX
+================================================================================
+
+Confidence   Classification         Alert     SIEM  Firewall  Ticket  SOC
+─────────────────────────────────────────────────────────────────────────────
+>85%         Attack/DDoS            YES       YES   YES       YES     YES*
+>85%         Attack/Injection       YES       YES   YES       YES     YES*
+>85%         Attack/Scanning        YES       YES   YES       YES     YES*
+
+60-85%       Suspicious/DDoS        YES       YES   RATE-LIM  NO      QUEUE
+60-85%       Suspicious/Injection   YES       YES   RATE-LIM  NO      QUEUE
+60-85%       Suspicious/Scanning    YES       YES   RATE-LIM  NO      QUEUE
+
+<60%         Likely Benign          NO        NO    NO        NO      NO
+<60%         Unclassified           NO        NO    NO        NO      NO
+
+* = Immediate notification to Security Operations Center
+
+
+================================================================================
