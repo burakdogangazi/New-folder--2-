@@ -329,10 +329,10 @@
                     </div>
                     <ul style="margin: 0; color: #0c2d4b; line-height: 1.8;">
                         <li><strong>File Type:</strong> CSV format (.csv)</li>
-                        <li><strong>Feature Count:</strong> Exactly 40 numeric features</li>
-                        <li><strong>Label Columns:</strong> label1, label2, label3, label4, label_full (optional)</li>
-                        <li><strong>Expected Format:</strong> Use the output from the feature engineering pipeline: <code style="background: white; padding: 2px 6px; border-radius: 4px;">data/features/combined_engineered_features.csv</code></li>
-                        <li><strong>Data Range:</strong> Features should be normalized/scaled (0-1 range preferred)</li>
+                        <li><strong>Column Count:</strong> Any number of features (system will auto-select the 40 training features)</li>
+                        <li><strong>Label Columns:</strong> Optional - label1, label2, label3, label4, label_full</li>
+                        <li><strong>Processing:</strong> System automatically cleans data, selects features, and applies scaling</li>
+                        <li><strong>Output:</strong> Detection results with confidence levels (HIGH/MEDIUM/LOW)</li>
                     </ul>
                 </div>
 

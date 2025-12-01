@@ -113,9 +113,9 @@ class IDSConfig:
     SCALER_PATH = None  # Not required if features already scaled
     PCA_PATH = None     # Not required if using raw features
     
-    # Confidence thresholds
-    HIGH_CONFIDENCE_THRESHOLD = 0.85
-    MEDIUM_CONFIDENCE_THRESHOLD = 0.60
+    # Confidence thresholds (updated)
+    HIGH_CONFIDENCE_THRESHOLD = 0.90
+    MEDIUM_CONFIDENCE_THRESHOLD = 0.70
     
     # Processing parameters
     BATCH_SIZE = 100  # Process samples in batches
@@ -662,17 +662,23 @@ def api_system_status():
     try:
         # Check model files
         models_available = {
-            'binary': os.path.exists(IDSConfig.BINARY_MODEL_PATH),
-            'multiclass': os.path.exists(IDSConfig.MULTICLASS_MODEL_PATH),
-            'scaler': os.path.exists(IDSConfig.SCALER_PATH),
-            'pca': os.path.exists(IDSConfig.PCA_PATH)
+            'binary': os.path.exists(IDSConfig.BINARY_MODEL_PATH) if IDSConfig.BINARY_MODEL_PATH else False,
+            'multiclass': os.path.exists(IDSConfig.MULTICLASS_MODEL_PATH) if IDSConfig.MULTICLASS_MODEL_PATH else False,
+            'scaler': os.path.exists(IDSConfig.SCALER_PATH) if IDSConfig.SCALER_PATH else False,
+            'pca': os.path.exists(IDSConfig.PCA_PATH) if IDSConfig.PCA_PATH else False
         }
         
         all_models_available = all(models_available.values())
         
-        # Get upload folder stats
-        upload_count = len(os.listdir(app.config['UPLOAD_FOLDER']))
-        results_count = len(os.listdir(app.config['RESULTS_FOLDER']))
+        # Get upload folder stats - safe check
+        upload_count = 0
+        results_count = 0
+        
+        if app.config.get('UPLOAD_FOLDER') and os.path.exists(app.config['UPLOAD_FOLDER']):
+            upload_count = len(os.listdir(app.config['UPLOAD_FOLDER']))
+        
+        if app.config.get('RESULTS_FOLDER') and os.path.exists(app.config['RESULTS_FOLDER']):
+            results_count = len(os.listdir(app.config['RESULTS_FOLDER']))
         
         return jsonify({
             'status': 'success',
