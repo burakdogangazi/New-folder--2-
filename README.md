@@ -106,30 +106,6 @@ Yapay Zeka Proje/
     └── features/                   # Feature engineering data
 ```
 
-## 🔧 Configuration
-
-Edit `app.py` `IDSConfig` class to customize:
-
-```python
-class IDSConfig:
-    # Model paths
-    BINARY_MODEL_PATH = "data/models/binary_best_model.pkl"
-    MULTICLASS_MODEL_PATH = "data/models/multiclass_best_model.pkl"
-    SCALER_PATH = "data/models/scaler.pkl"
-    PCA_PATH = "data/models/pca.pkl"
-    
-    # Confidence thresholds
-    HIGH_CONFIDENCE_THRESHOLD = 0.85      # > 85%
-    MEDIUM_CONFIDENCE_THRESHOLD = 0.60    # 60-85%
-    
-    # Processing limits
-    BATCH_SIZE = 100
-    MAX_SAMPLES = 10000
-    
-    # Label columns in CSV
-    LABEL_COLUMNS = ['label1', 'label2', 'label3', 'label4', 'label_full']
-```
-
 ## 📊 API Endpoints
 
 ### Upload & Process
