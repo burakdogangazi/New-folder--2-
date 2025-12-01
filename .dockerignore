@@ -1,0 +1,47 @@
+# .dockerignore - Exclude files from Docker image
+
+# Version control
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Development
+.pytest_cache
+.coverage
+htmlcov
+*.log
+
+# Documentation
+README.md
+DOCKER_README.md
+DOCKER_COMMANDS.md
+
+# Test files
+test_*.py
+tests/
+
+# Misc
+.env
+*.bak
+.editorconfig

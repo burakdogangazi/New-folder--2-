@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  ids-app:
+    build: .
+    container_name: ids-web-app
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./results:/app/results
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./data:/app/data
+    environment:
+      - FLASK_ENV=production
+      - FLASK_APP=app.py
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - ids-network
+
+  # Optional: Add a reverse proxy (nginx) for production
+  nginx:
+    image: nginx:alpine
+    container_name: ids-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./uploads:/app/uploads:ro
+      - ./results:/app/results:ro
+    depends_on:
+      - ids-app
+    networks:
+      - ids-network
+    restart: unless-stopped
+
+networks:
+  ids-network:
+    driver: bridge
+
+volumes:
+  uploads:
+  results:
+  models:
+  logs:
