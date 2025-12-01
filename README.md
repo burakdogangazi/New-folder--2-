@@ -212,62 +212,21 @@ class IDSConfig:
 
 ## 🚨 Confidence Routing Decisions
 
-### HIGH Confidence (>85%)
+### HIGH Confidence (>90%)
 - ✓ Immediate blocking at perimeter
 - ✓ SIEM alert generation
 - ✓ P1 incident ticket creation
 - ✓ SOC team notification
 
-### MEDIUM Confidence (60-85%)
+### MEDIUM Confidence (70-90%)
 - ⚠ Rate limiting applied
 - ⚠ Analyst review queue
 - ⚠ Sandbox analysis initiated
 - ⚠ Threat intelligence enrichment
 
-### LOW Confidence (<60%)
+### LOW Confidence (<70%)
 - ℹ Routine logging
 - ℹ Statistics sampling
 - ℹ Retraining dataset collection
 - ℹ No immediate action
 
-## 🛠️ Troubleshooting
-
-### Models not found
-```
-Check data/models/ directory contains all required .pkl files
-```
-
-### Upload fails
-```
-Ensure CSV has label1 and label2 columns
-Check file size < 100MB
-```
-
-### Slow processing
-```
-Reduce MAX_SAMPLES in IDSConfig
-Consider hardware upgrade
-Use production server (Gunicorn)
-```
-
-## 📞 Support
-
-For issues or questions:
-1. Check the Architecture page documentation
-2. Review system logs in console output
-3. Verify model file paths in IDSConfig
-
-## 📄 License
-
-[Add your license here]
-
-## 👥 Authors
-
-Developed for Dual Model Network Intrusion Detection System
-
-## 🔗 References
-
-- [Flask Documentation](https://flask.palletsprojects.com/)
-- [Scikit-learn ML Library](https://scikit-learn.org/)
-- [Bootstrap 5 Framework](https://getbootstrap.com/)
-- [Chart.js Visualization](https://www.chartjs.org/)
