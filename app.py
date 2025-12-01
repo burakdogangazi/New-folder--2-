@@ -20,8 +20,10 @@ from pathlib import Path
 import json
 from io import BytesIO
 import logging
-from sklearn.feature_selection import VarianceThreshold
-from sklearn.preprocessing import StandardScaler
+import warnings
+
+# Suppress sklearn warnings about feature names
+warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 
 # Import IDS system components
 from ids_confidence_routing_system import (
@@ -55,14 +57,61 @@ logger = logging.getLogger(__name__)
 # CONFIGURATION CLASS
 # ============================================================================
 
+# These are the EXACT 40 features used during model training
+# From: data/features/combined_engineered_features.csv
+TRAINING_FEATURES = [
+    'log_data-ranges_avg',
+    'log_data-ranges_std_deviation',
+    'log_interval-messages',
+    'log_messages_count',
+    'network_fragmentation-score',
+    'network_fragmented-packets',
+    'network_header-length_avg',
+    'network_header-length_std_deviation',
+    'network_interval-packets',
+    'network_ip-flags_avg',
+    'network_ip-flags_std_deviation',
+    'network_ip-length_avg',
+    'network_ip-length_max',
+    'network_ip-length_min',
+    'network_ip-length_std_deviation',
+    'network_ips_all_count',
+    'network_ips_src_count',
+    'network_mss_avg',
+    'network_mss_std_deviation',
+    'network_packet-size_min',
+    'network_packets_all_count',
+    'network_packets_src_count',
+    'network_payload-length_std_deviation',
+    'network_ports_all_count',
+    'network_ports_dst_count',
+    'network_tcp-flags-ack_count',
+    'network_tcp-flags-fin_count',
+    'network_tcp-flags-syn_count',
+    'network_tcp-flags_avg',
+    'network_tcp-flags_std_deviation',
+    'network_time-delta_avg',
+    'network_time-delta_max',
+    'network_time-delta_min',
+    'network_time-delta_std_deviation',
+    'network_ttl_avg',
+    'network_ttl_std_deviation',
+    'network_window-size_avg',
+    'network_window-size_max',
+    'network_window-size_min',
+    'network_window-size_std_deviation',
+]
+
+
 class IDSConfig:
     """IDS System Configuration"""
     
-    # Model paths (update these with your actual model paths)
-    BINARY_MODEL_PATH = "data/models/binary_best_model.pkl"
-    MULTICLASS_MODEL_PATH = "data/models/multiclass_best_model.pkl"
-    SCALER_PATH = "data/models/scaler.pkl"
-    PCA_PATH = "data/models/pca.pkl"
+    # Model paths
+    BINARY_MODEL_PATH = "models/binary_model.pkl"
+    MULTICLASS_MODEL_PATH = "models/multiclass_model.pkl"
+    # Optional preprocessing models
+    SCALER_PATH = None  # Not required if features already scaled
+    PCA_PATH = None     # Not required if using raw features
     
     # Confidence thresholds
     HIGH_CONFIDENCE_THRESHOLD = 0.85
@@ -130,86 +179,180 @@ def preprocess_csv(file_path):
         return None, f"Error reading CSV: {str(e)}"
 
 
+def step_1_clean_dataframe(df):
+    """
+    STEP 1: Clean DataFrame (Notebook 01 logic)
+    
+    Replicates the cleaning steps from notebook 01:
+    1. Remove duplicate rows
+    2. Drop columns with >51% missing values
+    3. Fill remaining missing values (numeric: median, categorical: mode)
+    4. Remove near-constant features
+    5. Handle infinity values
+    """
+    logger.info("[STEP 1] Cleaning DataFrame...")
+    initial_rows, initial_cols = df.shape
+    
+    # Protected label columns
+    protected_cols = ["label1", "label2", "label3", "label4", "label_full"]
+    
+    # 1. Remove duplicates
+    before_dups = len(df)
+    df = df.drop_duplicates()
+    dups_removed = before_dups - len(df)
+    logger.info(f"  → Removed {dups_removed} duplicate rows")
+    
+    # 2. Missing value analysis - drop columns with >51% missing
+    missing_ratio = df.isnull().mean().sort_values(ascending=False)
+    high_missing = missing_ratio[
+        (missing_ratio > 0.51) & (~missing_ratio.index.isin(protected_cols))
+    ]
+    
+    if len(high_missing) > 0:
+        df = df.drop(columns=high_missing.index.tolist())
+        logger.info(f"  → Dropped {len(high_missing)} columns with >51% missing values")
+    
+    # 3. Fill remaining missing values
+    num_cols = df.select_dtypes(include=[np.number]).columns
+    cat_cols = df.select_dtypes(exclude=[np.number]).columns
+    
+    # Fill numeric with median
+    for col in num_cols:
+        if df[col].isnull().any():
+            df[col].fillna(df[col].median(), inplace=True)
+    
+    # Fill categorical with mode
+    for col in cat_cols:
+        if df[col].isnull().any():
+            if len(df[col].mode()) > 0:
+                df[col].fillna(df[col].mode()[0], inplace=True)
+    
+    # 4. Remove near-constant features
+    nunique_ratio = df.nunique() / len(df)
+    low_var_cols = nunique_ratio[
+        (nunique_ratio < 0.0001) & (~nunique_ratio.index.isin(protected_cols))
+    ].index.tolist()
+    
+    if len(low_var_cols) > 0:
+        df = df.drop(columns=low_var_cols)
+        logger.info(f"  → Dropped {len(low_var_cols)} near-constant features")
+    
+    # 5. Handle infinity values
+    df = df.replace([np.inf, -np.inf], np.nan)
+    df = df.fillna(0)
+    
+    final_rows, final_cols = df.shape
+    logger.info(f"  → Cleaned: {final_rows:,} rows × {final_cols} cols "
+                f"(removed {initial_cols - final_cols} columns)")
+    
+    return df
+
+
+def step_2_select_and_scale(df):
+    """
+    STEP 2: Select Training Features + Scale
+    
+    The models were trained on EXACTLY 40 specific features from 
+    'data/features/combined_engineered_features.csv'
+    
+    This function:
+    1. Selects ONLY those 40 features (if they exist)
+    2. Fills any missing with 0 (shouldn't happen if data is complete)
+    3. Applies StandardScaler normalization
+    4. Separates labels and returns features
+    """
+    from sklearn.preprocessing import StandardScaler
+    
+    logger.info("[STEP 2] Selecting Training Features + Scaling...")
+    
+    # Protected label columns
+    protected_cols = ["label1", "label2", "label3", "label4", "label_full"]
+    
+    # Separate labels
+    label_cols = [col for col in protected_cols if col in df.columns]
+    labels_df = df[label_cols].copy() if label_cols else None
+    
+    logger.info(f"  → Separated {len(label_cols)} label columns")
+    
+    # Select ONLY the training features
+    available_features = [col for col in TRAINING_FEATURES if col in df.columns]
+    missing_features = [col for col in TRAINING_FEATURES if col not in df.columns]
+    
+    if len(missing_features) > 0:
+        logger.warning(f"  ⚠️  Missing {len(missing_features)} training features:")
+        for col in missing_features[:5]:
+            logger.warning(f"     - {col}")
+        if len(missing_features) > 5:
+            logger.warning(f"     ... and {len(missing_features)-5} more")
+    
+    # Select features
+    features_df = df[available_features].copy()
+    
+    # Fill any missing values with 0
+    if features_df.isnull().any().any():
+        missing_count = features_df.isnull().sum().sum()
+        logger.warning(f"  ⚠️  Found {missing_count} missing values - filling with 0")
+        features_df = features_df.fillna(0)
+    
+    logger.info(f"  → Selected {features_df.shape[1]} training features")
+    
+    # Apply StandardScaler normalization
+    scaler = StandardScaler()
+    features_scaled = scaler.fit_transform(features_df)
+    features_df = pd.DataFrame(features_scaled, columns=features_df.columns)
+    logger.info(f"  → Applied StandardScaler: mean≈{features_df.values.mean():.6f}, std≈{features_df.values.std():.6f}")
+    
+    # Return features only (labels handled separately)
+    logger.info(f"  → Final features: {features_df.shape[1]} columns")
+    
+    return features_df, labels_df
+
+
 def preprocess_user_features(df):
     """
-    Apply the same preprocessing pipeline as used during model training.
+    FULL PIPELINE: Clean + Select Training Features + Scale
     
-    Steps:
-    1. Extract features (remove label columns)
-    2. Handle categorical features (one-hot encoding for low-cardinality)
-    3. Remove high-correlated features (correlation > 0.95)
-    4. Apply StandardScaler normalization
-    5. Apply variance threshold filtering
-    6. Features will be PCA-transformed inside the model
+    This matches the EXACT pipeline used during model training:
+    1. STEP 1: Data Cleaning (duplicate removal, missing value handling)
+    2. STEP 2: Select the exact 40 training features + StandardScaler
     
-    Returns: preprocessed features array, or error message
+    Returns: features array (40 features), labels DataFrame, or error message
     """
     try:
-        # Step 1: Extract features (all columns except labels)
-        feature_cols = IDSConfig.get_feature_columns(df)
-        if len(feature_cols) == 0:
-            return None, "No feature columns found"
+        logger.info("=" * 70)
+        logger.info("STARTING FULL PREPROCESSING PIPELINE")
+        logger.info("=" * 70)
         
-        X = df[feature_cols].copy()
-        logger.info(f"Extracted {len(feature_cols)} features from {len(X)} samples")
+        # STEP 1: Clean
+        df_cleaned = step_1_clean_dataframe(df)
         
-        # Step 2: Check for missing values
-        missing_count = X.isnull().sum().sum()
-        if missing_count > 0:
-            logger.warning(f"Found {missing_count} missing values, filling with median")
-            X = X.fillna(X.median())
+        # STEP 2: Select training features + scale
+        features_df, labels_df = step_2_select_and_scale(df_cleaned)
         
-        # Step 3: Handle categorical features (one-hot encoding for low-cardinality)
-        categorical_cols = X.select_dtypes(include=['object']).columns.tolist()
+        logger.info("=" * 70)
+        total_cols = features_df.shape[1] + (labels_df.shape[1] if labels_df is not None else 0)
+        logger.info(f"PIPELINE COMPLETE: {features_df.shape[0]} rows × {total_cols} columns")
+        logger.info("=" * 70)
         
-        for col in categorical_cols:
-            unique_count = X[col].nunique()
-            if unique_count <= 20:  # Low-cardinality: one-hot encode
-                logger.info(f"One-hot encoding column '{col}' ({unique_count} unique values)")
-                encoded = pd.get_dummies(X[col], prefix=col, drop_first=True)
-                X = X.drop(columns=[col])
-                X = pd.concat([X, encoded], axis=1)
-            else:  # High-cardinality: drop column
-                logger.warning(f"Dropping high-cardinality column '{col}' ({unique_count} unique values)")
-                X = X.drop(columns=[col])
+        logger.info(f"Features shape: {features_df.shape}")
+        if labels_df is not None:
+            logger.info(f"Labels shape: {labels_df.shape}")
         
-        # Step 4: Remove non-numeric columns if any remain
-        X = X.select_dtypes(include=[np.number])
-        logger.info(f"Features after categorical handling: {X.shape[1]}")
+        # Verify we have the correct number of features
+        expected_features = len(TRAINING_FEATURES)
+        if features_df.shape[1] != expected_features:
+            logger.warning(f"⚠️  Expected {expected_features} features but got {features_df.shape[1]}!")
+        else:
+            logger.info(f"✓ Feature count matches training data: {features_df.shape[1]} features")
         
-        # Step 5: Remove highly correlated features (correlation > 0.95)
-        # Calculate correlation matrix
-        corr_matrix = X.corr().abs()
-        
-        # Select upper triangle of correlation matrix
-        upper = corr_matrix.where(
-            np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
-        )
-        
-        # Find columns with correlation > 0.95
-        drop_cols = []
-        for column in upper.columns:
-            if any(upper[column] > 0.95):
-                drop_cols.append(column)
-        
-        if len(drop_cols) > 0:
-            logger.info(f"Dropping {len(drop_cols)} highly correlated features")
-            X = X.drop(columns=drop_cols)
-        
-        logger.info(f"Features after correlation filtering: {X.shape[1]}")
-        
-        # Step 6: Apply variance threshold (remove near-zero variance features)
-        var_threshold = VarianceThreshold(threshold=0.01)
-        X_var_filtered = var_threshold.fit_transform(X)
-        X = pd.DataFrame(X_var_filtered, columns=[f"f_{i}" for i in range(X_var_filtered.shape[1])])
-        logger.info(f"Features after variance filtering: {X.shape[1]}")
-        
-        return X.values, None
+        return features_df.values, labels_df, None
         
     except Exception as e:
-        error_msg = f"Error preprocessing features: {str(e)}"
+        error_msg = f"Error in preprocessing pipeline: {str(e)}"
         logger.error(error_msg)
-        return None, error_msg
+        import traceback
+        logger.error(traceback.format_exc())
+        return None, None, error_msg
 
 
 def get_feature_matrix(df):
@@ -317,10 +460,13 @@ def api_process(file_id):
     """Process uploaded file with IDS system"""
     
     try:
-        # Load CSV
+        # Load CSV - file_id is just the filename, construct full path
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], file_id)
+        logger.info(f"Looking for file at: {file_path}")
+        
         if not os.path.exists(file_path):
-            return jsonify({'status': 'error', 'message': 'File not found'}), 404
+            logger.error(f"File not found: {file_path}")
+            return jsonify({'status': 'error', 'message': f'File not found: {file_path}'}), 404
         
         df, error = preprocess_csv(file_path)
         if error:
@@ -334,7 +480,7 @@ def api_process(file_id):
         logger.info(f"Processing file {file_id} with {len(df)} samples")
         
         # APPLY FULL PREPROCESSING PIPELINE (matching training phase)
-        X, error = preprocess_user_features(df)
+        X, y, error = preprocess_user_features(df)
         if error:
             return jsonify({'status': 'error', 'message': error}), 400
         
@@ -345,40 +491,87 @@ def api_process(file_id):
         predictions = []
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         
+        logger.info(f"Starting prediction loop for {X.shape[0]} samples...")
+        
         for idx, features in enumerate(X):
             sample_id = f"sample_{idx}"
-            decision = ids.detect_and_route(sample_id, features)
-            
-            result = {
-                'sample_id': sample_id,
-                'index': idx,
-                'confidence_level': decision.confidence_level.value,
-                'classification': decision.classification,
-                'attack_type': decision.attack_type,
-                'confidence_score': float(decision.confidence_score),
-                'priority': decision.priority.value,
-                'actions_count': len(decision.actions)
-            }
-            
-            results.append(result)
-            predictions.append(decision.confidence_level.value)
+            try:
+                decision = ids.detect_and_route(sample_id, features)
+                
+                if decision is None:
+                    logger.warning(f"  Skipping sample {idx}: decision is None")
+                    continue
+                
+                # Safely extract all fields with fallbacks
+                try:
+                    conf_level_str = decision.confidence_level.value if (decision.confidence_level and hasattr(decision.confidence_level, 'value')) else 'UNKNOWN'
+                except:
+                    conf_level_str = 'UNKNOWN'
+                
+                try:
+                    priority_str = decision.priority.value if (decision.priority and hasattr(decision.priority, 'value')) else 'UNKNOWN'
+                except:
+                    priority_str = 'UNKNOWN'
+                
+                try:
+                    conf_score_val = float(decision.confidence_score) if decision.confidence_score is not None else 0.0
+                except:
+                    conf_score_val = 0.0
+                
+                result = {
+                    'sample_id': str(sample_id) if sample_id else 'unknown',
+                    'index': int(idx) if idx is not None else -1,
+                    'confidence_level': conf_level_str if conf_level_str else 'UNKNOWN',
+                    'classification': str(decision.classification) if decision.classification is not None else 'UNKNOWN',
+                    'attack_type': str(decision.attack_type) if decision.attack_type is not None else 'UNKNOWN',
+                    'confidence_score': conf_score_val if conf_score_val is not None else 0.0,
+                    'priority': priority_str if priority_str else 'UNKNOWN',
+                    'actions_count': int(len(decision.actions)) if decision.actions else 0
+                }
+                
+                results.append(result)
+                predictions.append(result['confidence_level'])
+            except Exception as e:
+                import traceback
+                logger.error(f"  Error processing sample {idx}: {str(e)}")
+                logger.error(f"  Traceback: {traceback.format_exc()}")
+                continue
+        
+        logger.info(f"Successfully processed {len(results)} samples")
         
         # Create results DataFrame
+        if len(results) == 0:
+            return jsonify({'status': 'error', 'message': 'No predictions generated'}), 500
+        
         results_df = pd.DataFrame(results)
         
-        # Generate statistics
-        stats = {
-            'total_processed': len(results),
-            'high_confidence': len(results_df[results_df['confidence_level'] == 'HIGH']),
-            'medium_confidence': len(results_df[results_df['confidence_level'] == 'MEDIUM']),
-            'low_confidence': len(results_df[results_df['confidence_level'] == 'LOW']),
-            'average_confidence': float(results_df['confidence_score'].mean()),
-            'max_confidence': float(results_df['confidence_score'].max()),
-            'min_confidence': float(results_df['confidence_score'].min()),
-            'attacks_detected': len(results_df[results_df['confidence_level'].isin(['HIGH', 'MEDIUM'])]),
-            'attack_distribution': results_df[results_df['confidence_level'] == 'HIGH']['attack_type'].value_counts().to_dict(),
-            'priority_distribution': results_df['priority'].value_counts().to_dict()
-        }
+        # Generate statistics with safe dict access
+        try:
+            high_conf_df = results_df[results_df['confidence_level'] == 'HIGH']
+            attack_dist = high_conf_df['attack_type'].value_counts().to_dict() if len(high_conf_df) > 0 else {}
+            
+            priority_dist = results_df['priority'].value_counts().to_dict() if len(results_df) > 0 else {}
+            
+            stats = {
+                'total_processed': len(results),
+                'high_confidence': len(results_df[results_df['confidence_level'] == 'HIGH']),
+                'medium_confidence': len(results_df[results_df['confidence_level'] == 'MEDIUM']),
+                'low_confidence': len(results_df[results_df['confidence_level'] == 'LOW']),
+                'average_confidence': float(results_df['confidence_score'].mean()) if len(results_df) > 0 else 0.0,
+                'max_confidence': float(results_df['confidence_score'].max()) if len(results_df) > 0 else 0.0,
+                'min_confidence': float(results_df['confidence_score'].min()) if len(results_df) > 0 else 0.0,
+                'attacks_detected': len(results_df[results_df['confidence_level'].isin(['HIGH', 'MEDIUM'])]),
+                'attack_distribution': attack_dist,
+                'priority_distribution': priority_dist
+            }
+        except Exception as e:
+            logger.error(f"Error generating statistics: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            stats = {
+                'total_processed': len(results),
+                'error': str(e)
+            }
         
         # Save results
         result_id = f"results_{timestamp}"

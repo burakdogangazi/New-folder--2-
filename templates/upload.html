@@ -321,6 +321,21 @@
 
         <div class="card card-custom">
             <div class="card-body">
+                <!-- Input Format Requirements -->
+                <div style="background: #e0f2fe; border-left: 4px solid #0284c7; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+                    <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                        <i class="fas fa-info-circle" style="color: #0284c7; font-size: 20px; margin-right: 10px;"></i>
+                        <h5 style="margin: 0; color: #0c2d4b; font-weight: 700;">Input Format Requirements</h5>
+                    </div>
+                    <ul style="margin: 0; color: #0c2d4b; line-height: 1.8;">
+                        <li><strong>File Type:</strong> CSV format (.csv)</li>
+                        <li><strong>Feature Count:</strong> Exactly 40 numeric features</li>
+                        <li><strong>Label Columns:</strong> label1, label2, label3, label4, label_full (optional)</li>
+                        <li><strong>Expected Format:</strong> Use the output from the feature engineering pipeline: <code style="background: white; padding: 2px 6px; border-radius: 4px;">data/features/combined_engineered_features.csv</code></li>
+                        <li><strong>Data Range:</strong> Features should be normalized/scaled (0-1 range preferred)</li>
+                    </ul>
+                </div>
+
                 <div id="message" class="alert-custom"></div>
 
                 <div class="upload-area" id="upload-area">

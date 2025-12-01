@@ -64,6 +64,20 @@ class RoutingDecision:
     priority: ActionPriority = None
     actions: List[str] = None
     timestamp: datetime = None
+    
+    def __str__(self):
+        """Safe string representation."""
+        return (f"RoutingDecision(sample_id={self.sample_id}, "
+                f"confidence_level={self.confidence_level}, "
+                f"classification={self.classification}, "
+                f"attack_type={self.attack_type}, "
+                f"confidence_score={self.confidence_score}, "
+                f"priority={self.priority}, "
+                f"actions_count={len(self.actions) if self.actions else 0})")
+    
+    def __repr__(self):
+        """Safe representation."""
+        return self.__str__()
 
 
 # ============================================================================
@@ -92,9 +106,9 @@ class ConfidenceBasedRouter:
         Parameters
         ----------
         high_confidence_threshold : float
-            Threshold for high-confidence decisions (default: 85%)
+            Threshold for high-confidence decisions (default: 90%)
         medium_confidence_threshold : float
-            Threshold for medium-confidence decisions (default: 60%)
+            Threshold for medium-confidence decisions (default: 70%)
         """
         self.high_threshold = high_confidence_threshold
         self.medium_threshold = medium_confidence_threshold
@@ -140,7 +154,7 @@ class ConfidenceBasedRouter:
         """
         actions = [
             f"[CRITICAL] Immediate automated blocking at network perimeter",
-            f"[ALERT] SIEM alert: {sample.attack_type} attack detected (Confidence: {sample.attack_probability:.2%})",
+            f"[ALERT] SIEM alert: {sample.attack_type} attack detected (Confidence: {(sample.attack_probability if sample.attack_probability is not None else 0):.2%})",
             f"[TICKET] Incident ticket creation: {sample.attack_type} - Sample ID: {sample.sample_id}",
             f"[SOC] Security Operations Center notification - Immediate action required",
             f"[BLOCK] IP/Port blocking rules deployed",
@@ -170,7 +184,7 @@ class ConfidenceBasedRouter:
             f"[WARNING] Traffic logging with elevated priority",
             f"[ANALYSIS] Sandbox analysis initiated for: {sample.attack_type}",
             f"[RATE_LIMIT] Temporary rate limiting applied (threshold: 50% of normal)",
-            f"[ALERT] Tier-1 security analyst alert - Confidence: {sample.attack_probability:.2%}",
+            f"[ALERT] Tier-1 security analyst alert - Confidence: {(sample.attack_probability if sample.attack_probability is not None else 0):.2%}",
             f"[THREAT_INTEL] Enrichment with threat intelligence feeds in progress",
             f"[MONITOR] Enhanced monitoring enabled for source IP",
             f"[QUEUE] Queued for incident review by security team",
@@ -220,7 +234,8 @@ class ConfidenceBasedRouter:
             Structured routing decision with appropriate actions
         """
         # Determine confidence level
-        if sample.binary_prediction == "Attack":
+        # Use attack_probability if available (Stage 2 ran), otherwise use binary_probability
+        if sample.binary_prediction == "Attack" and sample.attack_probability is not None:
             confidence_score = sample.attack_probability
         else:
             confidence_score = sample.binary_probability
@@ -235,16 +250,18 @@ class ConfidenceBasedRouter:
         }
         priority = priority_map[confidence_level]
         
-        # Get appropriate actions
+        # Get appropriate actions and classification
+        # If LOW confidence (below 60%), treat as BENIGN regardless of prediction
         if confidence_level == ConfidenceLevel.HIGH:
             actions = self.get_high_confidence_actions(sample)
             classification = f"CONFIRMED_ATTACK: {sample.attack_type}"
         elif confidence_level == ConfidenceLevel.MEDIUM:
             actions = self.get_medium_confidence_actions(sample)
             classification = f"SUSPICIOUS: Possible {sample.attack_type}"
-        else:  # LOW
+        else:  # LOW - treat as BENIGN
             actions = self.get_low_confidence_actions(sample)
             classification = "BENIGN"
+            sample.attack_type = None  # Clear attack type for benign classification
         
         # Create routing decision
         decision = RoutingDecision(
@@ -277,8 +294,8 @@ class DualModelIDS:
     def __init__(self, 
                  binary_model_path: str,
                  multiclass_model_path: str,
-                 scaler_path: str,
-                 pca_model_path: str):
+                 scaler_path: str = None,
+                 pca_model_path: str = None):
         """
         Initialize IDS system with pretrained models.
         
@@ -288,21 +305,23 @@ class DualModelIDS:
             Path to binary classification model
         multiclass_model_path : str
             Path to multiclass classification model
-        scaler_path : str
-            Path to feature scaler
-        pca_model_path : str
-            Path to PCA model for feature transformation
+        scaler_path : str, optional
+            Path to feature scaler (if None, no scaling applied)
+        pca_model_path : str, optional
+            Path to PCA model for feature transformation (if None, no PCA applied)
         """
         # Load models
         self.binary_model = joblib.load(binary_model_path)
         self.multiclass_model = joblib.load(multiclass_model_path)
-        self.scaler = joblib.load(scaler_path)
-        self.pca = joblib.load(pca_model_path)
+        
+        # Load optional preprocessing models
+        self.scaler = joblib.load(scaler_path) if scaler_path else None
+        self.pca = joblib.load(pca_model_path) if pca_model_path else None
         
         # Initialize router
         self.router = ConfidenceBasedRouter(
-            high_confidence_threshold=0.85,
-            medium_confidence_threshold=0.60
+            high_confidence_threshold=0.90,
+            medium_confidence_threshold=0.70
         )
         
         self.predictions_cache = []
@@ -321,13 +340,17 @@ class DualModelIDS:
         np.ndarray
             Preprocessed and dimensionally-reduced features
         """
-        # Scale features
-        scaled_features = self.scaler.transform(raw_features.reshape(1, -1))
+        features = raw_features.reshape(1, -1)
         
-        # Apply PCA
-        pca_features = self.pca.transform(scaled_features)
+        # Scale features if scaler available
+        if self.scaler:
+            features = self.scaler.transform(features)
         
-        return pca_features[0]
+        # Apply PCA if available
+        if self.pca:
+            features = self.pca.transform(features)
+        
+        return features[0]
     
     def predict_sample(self, 
                       sample_id: str,
@@ -365,11 +388,11 @@ class DualModelIDS:
             binary_confidence = binary_proba[0]
             label = "Benign"
         
-        # Stage 2: Multiclass Classification (only if Attack)
+        # Stage 2: Multiclass Classification (only if Attack with HIGH confidence)
         attack_type = None
         attack_confidence = None
         
-        if label == "Attack":
+        if label == "Attack" and binary_confidence >= 0.90:  # Only Stage 2 if >90% sure it's attack
             multiclass_pred = self.multiclass_model.predict(features.reshape(1, -1))[0]
             multiclass_proba = self.multiclass_model.predict_proba(features.reshape(1, -1))[0]
             
