@@ -1,5 +1,5 @@
 ╔════════════════════════════════════════════════════════════════════════════╗
-║           DUAL MODEL IDS WEB SYSTEM - PROJECT STRUCTURE                    ║
+║           DUAL MODEL IDS Web System - Burak Doğan - PROJECT STRUCTURE                    ║
 ║              Flask Application for Network Attack Detection               ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 

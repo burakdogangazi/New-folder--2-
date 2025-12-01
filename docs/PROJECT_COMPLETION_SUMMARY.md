@@ -1,4 +1,4 @@
-# 🎯 Flask IDS Web System - Proje Özeti
+# 🎯 Flask IDS Web System - Burak Doğan - Proje Özeti
 
 ## 📊 Proje Tamamlanma Durumu
 
@@ -437,7 +437,7 @@ data/models/
 
 ## 🎉 Sonuç
 
-Dual Model IDS Web System tamamen işlevsel ve production-ready durumdadır.
+Dual Model IDS Web System - Burak Doğan tamamen işlevsel ve production-ready durumdadır.
 
 **Başlangıç:**
 ```bash

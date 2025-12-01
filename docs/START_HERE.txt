@@ -325,7 +325,7 @@ Step 4: Upload a CSV file
 Step 5: Process and view results
         Click "Start Processing" button
 
-That's it! 🚀 Your IDS Web System is ready to use!
+That's it! 🚀 Your IDS Web System - Burak Doğan is ready to use!
 
 
 ═════════════════════════════════════════════════════════════════════════════
@@ -345,6 +345,6 @@ All files have been created in English as requested! ✅
 Modern Bootstrap 5 UI with professional styling! ✅
 Complete Flask web application ready to deploy! ✅
 
-Good luck with your IDS Web System! 🚀
+Good luck with your IDS Web System - Burak Doğan! 🚀
 
 ═════════════════════════════════════════════════════════════════════════════

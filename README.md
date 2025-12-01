@@ -1,4 +1,4 @@
-# IDS Web System - Dual Model Network Attack Detection
+# IDS Web System - Burak Doğan - Dual Model Network Attack Detection
 
 A Flask web application that implements a dual-model machine learning system for network intrusion detection with confidence-based routing and enterprise integration capabilities.
 

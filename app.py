@@ -41,9 +41,11 @@ app.config['RESULTS_FOLDER'] = 'results'
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max
 ALLOWED_EXTENSIONS = {'csv'}
 
-# Create necessary directories
-Path(app.config['UPLOAD_FOLDER']).mkdir(exist_ok=True)
-Path(app.config['RESULTS_FOLDER']).mkdir(exist_ok=True)
+# Create necessary directories with absolute paths
+app.config['UPLOAD_FOLDER'] = os.path.abspath(app.config['UPLOAD_FOLDER'])
+app.config['RESULTS_FOLDER'] = os.path.abspath(app.config['RESULTS_FOLDER'])
+Path(app.config['UPLOAD_FOLDER']).mkdir(parents=True, exist_ok=True)
+Path(app.config['RESULTS_FOLDER']).mkdir(parents=True, exist_ok=True)
 
 # Setup logging
 logging.basicConfig(
@@ -576,7 +578,7 @@ def api_process(file_id):
         # Save results
         result_id = f"results_{timestamp}"
         result_dir = os.path.join(app.config['RESULTS_FOLDER'], result_id)
-        Path(result_dir).mkdir(exist_ok=True)
+        Path(result_dir).mkdir(parents=True, exist_ok=True)
         
         # Save CSV results
         results_csv = os.path.join(result_dir, 'predictions.csv')

@@ -50,6 +50,7 @@ class TrafficSample:
     binary_probability: float
     attack_type: str = None
     attack_probability: float = None
+    attack_confidence_level: str = None  # "CONFIRMED" (HIGH) or "POSSIBLE" (MEDIUM)
     confidence_level: ConfidenceLevel = None
 
 
@@ -388,16 +389,23 @@ class DualModelIDS:
             binary_confidence = binary_proba[0]
             label = "Benign"
         
-        # Stage 2: Multiclass Classification (only if Attack with HIGH confidence)
+        # Stage 2: Multiclass Classification (if Attack with confidence >= 70%)
         attack_type = None
         attack_confidence = None
+        attack_confidence_level = None  # "CONFIRMED" for HIGH, "POSSIBLE" for MEDIUM
         
-        if label == "Attack" and binary_confidence >= 0.90:  # Only Stage 2 if >90% sure it's attack
+        if label == "Attack" and binary_confidence >= 0.70:  # Run Stage 2 if >=70% confidence
             multiclass_pred = self.multiclass_model.predict(features.reshape(1, -1))[0]
             multiclass_proba = self.multiclass_model.predict_proba(features.reshape(1, -1))[0]
             
             attack_type = multiclass_pred
             attack_confidence = np.max(multiclass_proba)
+            
+            # Mark as CONFIRMED (HIGH >90%) or POSSIBLE (MEDIUM 70-90%)
+            if binary_confidence >= 0.90:
+                attack_confidence_level = "CONFIRMED"
+            else:
+                attack_confidence_level = "POSSIBLE"
         
         # Create traffic sample
         sample = TrafficSample(
@@ -407,7 +415,8 @@ class DualModelIDS:
             binary_prediction=label,
             binary_probability=binary_confidence,
             attack_type=attack_type,
-            attack_probability=attack_confidence
+            attack_probability=attack_confidence,
+            attack_confidence_level=attack_confidence_level
         )
         
         return sample

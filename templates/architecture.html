@@ -132,7 +132,7 @@
     <nav class="navbar navbar-expand-lg navbar-light navbar-custom sticky-top">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
-                <i class="fas fa-shield-alt"></i> IDS Web System
+                <i class="fas fa-shield-alt"></i> IDS Web System - Burak Doğan
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -167,7 +167,7 @@
             <div class="card-body">
                 <h3><i class="fas fa-diagram-project"></i> Overview</h3>
                 <p>
-                    The Dual Model IDS Web System implements a two-stage attack detection pipeline with confidence-based 
+                    The Dual Model IDS Web System - Burak Doğan implements a two-stage attack detection pipeline with confidence-based 
                     routing. Network traffic is first classified as benign or attack, then attack type is identified. 
                     Confidence scores determine the response actions (blocking, alerting, logging).
                 </p>
@@ -208,6 +208,160 @@
                     <div>
                         <strong>Results Display:</strong> Visualize predictions with charts and detailed statistics
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stage 2 Triggering Logic Card -->
+        <div class="card card-custom">
+            <div class="card-body">
+                <h3><i class="fas fa-project-diagram"></i>How Attack Type Detection Works</h3>
+                <p style="font-size: 15px; line-height: 1.9; margin-bottom: 2rem;">
+                    After Stage 1 determines if traffic is an "Attack" or "Benign", the system uses confidence levels to decide whether to run Stage 2 
+                    (attack type classification). Here's how the decision works based on the confidence score from Stage 1:
+                </p>
+
+                <!-- HIGH Confidence -->
+                <div style="background: #fff5f5; border: 2px solid #f56565; border-radius: 10px; padding: 20px; margin-bottom: 25px;">
+                    <h5 style="color: #c53030; margin-bottom: 1rem; font-weight: 700;">
+                        <i class="fas fa-check-circle"></i> HIGH Confidence (>90%)
+                    </h5>
+                    <table style="width: 100%; font-size: 14px; line-height: 2;">
+                        <tr style="border-bottom: 1px solid #fed7d7;">
+                            <td style="padding: 12px; font-weight: 700; width: 30%; color: #742a2a;">Decision:</td>
+                            <td style="padding: 12px; color: #742a2a;">
+                                <strong>"This is DEFINITELY an attack"</strong> - We are very confident
+                            </td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #fed7d7;">
+                            <td style="padding: 12px; font-weight: 700; color: #742a2a;">Stage 2 Runs?</td>
+                            <td style="padding: 12px; color: #742a2a;">
+                                ✅ <strong>YES - Immediately</strong>
+                            </td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #fed7d7;">
+                            <td style="padding: 12px; font-weight: 700; color: #742a2a;">Logic:</td>
+                            <td style="padding: 12px; color: #742a2a;">
+                                Since we're very confident it's an attack (>90%), we run Stage 2 to identify exactly what type of attack it is 
+                                (DDoS, Reconnaissance, DoS, MITM, etc.). The attack is marked as "CONFIRMED".
+                            </td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #fed7d7;">
+                            <td style="padding: 12px; font-weight: 700; color: #742a2a;">Result:</td>
+                            <td style="padding: 12px; color: #742a2a;">
+                                ✓ <code style="background: white; padding: 3px 6px;">attack_type</code> = "DDoS" (or other type)<br/>
+                                ✓ <code style="background: white; padding: 3px 6px;">attack_confidence</code> = "CONFIRMED" (not possible)<br/>
+                                ✓ <code style="background: white; padding: 3px 6px;">confidence_score</code> = 92.8% (Stage 1 confidence)<br/>
+                                Classification is <strong>CONFIRMED</strong> - take immediate action
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px; font-weight: 700; color: #742a2a;">Action:</td>
+                            <td style="padding: 12px; color: #742a2a;">
+                                <strong>BLOCK immediately</strong> | Generate P1 ticket | Alert SOC team | Update firewall rules in real-time
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- MEDIUM Confidence -->
+                <div style="background: #fffaf0; border: 2px solid #ed8936; border-radius: 10px; padding: 20px; margin-bottom: 25px;">
+                    <h5 style="color: #7c2d12; margin-bottom: 1rem; font-weight: 700;">
+                        <i class="fas fa-exclamation-triangle"></i> MEDIUM Confidence (70-90%)
+                    </h5>
+                    <table style="width: 100%; font-size: 14px; line-height: 2;">
+                        <tr style="border-bottom: 1px solid #feebc8;">
+                            <td style="padding: 12px; font-weight: 700; width: 30%; color: #7c2d12;">Decision:</td>
+                            <td style="padding: 12px; color: #7c2d12;">
+                                <strong>"This might be an attack"</strong> - We are moderately confident, but not 100% sure
+                            </td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #feebc8;">
+                            <td style="padding: 12px; font-weight: 700; color: #7c2d12;">Stage 2 Runs?</td>
+                            <td style="padding: 12px; color: #7c2d12;">
+                                ✅ <strong>YES - But Marked as "POSSIBLE"</strong>
+                            </td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #feebc8;">
+                            <td style="padding: 12px; font-weight: 700; color: #7c2d12;">Logic:</td>
+                            <td style="padding: 12px; color: #7c2d12;">
+                                We think it's an attack, so we run Stage 2 to determine the attack type. However, the uncertainty means the attack classification 
+                                is marked as "POSSIBLE" rather than "CONFIRMED". Additional verification needed before taking destructive actions.
+                            </td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #feebc8;">
+                            <td style="padding: 12px; font-weight: 700; color: #7c2d12;">Result:</td>
+                            <td style="padding: 12px; color: #7c2d12;">
+                                ✓ <code style="background: white; padding: 3px 6px;">attack_type</code> = "Reconnaissance" (or other type)<br/>
+                                ✓ <code style="background: white; padding: 3px 6px;">attack_confidence</code> = "POSSIBLE" (not confirmed)<br/>
+                                ✓ <code style="background: white; padding: 3px 6px;">confidence_score</code> = 78% (Stage 1 confidence)<br/>
+                                Classification is <strong>SUSPICIOUS</strong> - needs investigation before action
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px; font-weight: 700; color: #7c2d12;">Action:</td>
+                            <td style="padding: 12px; color: #7c2d12;">
+                                <strong>INVESTIGATE</strong> | Add to analyst queue (P2) | Enable rate limiting | Run in sandbox | Enrich with threat intelligence
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- LOW Confidence -->
+                <div style="background: #f0fdf4; border: 2px solid #48bb78; border-radius: 10px; padding: 20px; margin-bottom: 25px;">
+                    <h5 style="color: #22543d; margin-bottom: 1rem; font-weight: 700;">
+                        <i class="fas fa-times-circle"></i> LOW Confidence (<70%)
+                    </h5>
+                    <table style="width: 100%; font-size: 14px; line-height: 2;">
+                        <tr style="border-bottom: 1px solid #c6f6d5;">
+                            <td style="padding: 12px; font-weight: 700; width: 30%; color: #22543d;">Decision:</td>
+                            <td style="padding: 12px; color: #22543d;">
+                                <strong>"This is probably normal traffic"</strong> - We are not confident it's an attack
+                            </td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #c6f6d5;">
+                            <td style="padding: 12px; font-weight: 700; color: #22543d;">Stage 2 Runs?</td>
+                            <td style="padding: 12px; color: #22543d;">
+                                ❌ <strong>NO - Skipped</strong>
+                            </td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #c6f6d5;">
+                            <td style="padding: 12px; font-weight: 700; color: #22543d;">Logic:</td>
+                            <td style="padding: 12px; color: #22543d;">
+                                We don't think it's an attack (confidence <70%), so there's no point running Stage 2 to classify attack types. 
+                                We assume the traffic is safe and treat it as normal, benign network activity.
+                            </td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #c6f6d5;">
+                            <td style="padding: 12px; font-weight: 700; color: #22543d;">Result:</td>
+                            <td style="padding: 12px; color: #22543d;">
+                                ✗ <code style="background: white; padding: 3px 6px;">attack_type</code> = None (not determined)<br/>
+                                ✗ <code style="background: white; padding: 3px 6px;">attack_probability</code> = None (no Stage 2 run)<br/>
+                                Classification is <strong>SAFE</strong> - no threat identified
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px; font-weight: 700; color: #22543d;">Action:</td>
+                            <td style="padding: 12px; color: #22543d;">
+                                <strong>ALLOW</strong> | Log routine activity | No alerts | No blocking | Normal operations continue
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Summary Box -->
+                <div style="background: rgba(102, 126, 234, 0.08); padding: 20px; border-radius: 10px; border-left: 4px solid #667eea; margin-top: 25px;">
+                    <h5 style="color: #667eea; margin-bottom: 1rem; font-weight: 700;">
+                        <i class="fas fa-lightbulb"></i> Quick Summary - Stage 2 Execution Rule
+                    </h5>
+                    <p style="font-size: 14px; margin-bottom: 1rem; font-weight: 700; color: #333;">
+                        Stage 2 runs if: Stage1_Prediction = "Attack" AND Stage1_Confidence ≥ 70%
+                    </p>
+                    <ul style="font-size: 14px; line-height: 2.2; margin: 0;">
+                        <li><strong>HIGH (>90%):</strong> ✓ Stage 2 runs → attack_type = CONFIRMED → attack_confidence="CONFIRMED" → BLOCK</li>
+                        <li><strong>MEDIUM (70-90%):</strong> ✓ Stage 2 runs → attack_type = probable → attack_confidence="POSSIBLE" → INVESTIGATE</li>
+                        <li><strong>LOW (<70%):</strong> ✗ Stage 2 SKIPPED → attack_type = None → attack_confidence=N/A → ALLOW</li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -261,30 +415,62 @@
         <!-- Models Card -->
         <div class="card card-custom">
             <div class="card-body">
-                <h3><i class="fas fa-brain"></i> Machine Learning Models</h3>
+                <h3><i class="fas fa-brain"></i> Machine Learning Models - Best Performers Selected</h3>
                 
-                <h4>Binary Classification Models</h4>
-                <p>6 different models trained for benign vs. attack classification:</p>
-                <ul>
-                    <li><strong>Logistic Regression:</strong> Baseline linear classifier</li>
-                    <li><strong>K-Nearest Neighbors:</strong> Instance-based learning</li>
-                    <li><strong>Naive Bayes:</strong> Probabilistic classifier</li>
-                    <li><strong>Decision Tree:</strong> Tree-based classifier</li>
-                    <li><strong>Random Forest:</strong> Ensemble method</li>
-                    <li><strong>Support Vector Machine:</strong> Kernel-based classifier</li>
-                </ul>
-
-                <h4>Multiclass Classification Models</h4>
-                <p>Same 6 models trained to identify specific attack types (DoS, Probe, R2L, U2R, etc.)</p>
-
-                <h4>Feature Engineering</h4>
-                <p>
-                    <strong>PCA (Principal Component Analysis):</strong> Reduces 100+ network traffic features 
-                    to 40-50 principal components (95% variance retention)
+                <h4>Model Selection Process</h4>
+                <p style="font-size: 14px; margin-bottom: 1rem;">
+                    The system was trained with 6 different machine learning models for each classification task. 
+                    Performance comparison testing identified the best-performing model for each stage:
                 </p>
-                <p>
-                    <strong>Scaling:</strong> StandardScaler normalization ensures features are on similar scales
+
+                <h5 style="margin-top: 1.5rem; color: var(--primary-color); font-weight: 700;">Stage 1: Binary Classification (Attack vs Benign)</h5>
+                <div style="background: rgba(102, 126, 234, 0.08); padding: 15px; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #667eea;">
+                    <p style="font-size: 14px; margin-bottom: 0.5rem;">
+                        <strong>Models Tested:</strong> Logistic Regression, MLP, Random Forest, LightGBM, K-Nearest Neighbors, Gaussian Naive Bayes
+                    </p>
+                    <p style="font-size: 14px; margin-bottom: 0.5rem;">
+                        <strong style="color: #2ecc71;">✓ Selected Model: Random Forest</strong>
+                    </p>
+                    <p style="font-size: 14px; margin: 0;">
+                        <strong>Reason:</strong> Best accuracy and robustness in distinguishing between benign and attack traffic. 
+                        Handles feature interactions well and provides stable predictions across diverse network patterns.
+                    </p>
+                </div>
+
+                <h5 style="margin-top: 1.5rem; color: var(--primary-color); font-weight: 700;">Stage 2: Multiclass Classification (Attack Type Identification)</h5>
+                <div style="background: rgba(102, 126, 234, 0.08); padding: 15px; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #667eea;">
+                    <p style="font-size: 14px; margin-bottom: 0.5rem;">
+                        <strong>Models Tested:</strong> Logistic Regression, MLP, Random Forest, LightGBM, K-Nearest Neighbors, Gaussian Naive Bayes
+                    </p>
+                    <p style="font-size: 14px; margin-bottom: 0.5rem;">
+                        <strong style="color: #2ecc71;">✓ Selected Model: LightGBM (Gradient Boosting)</strong>
+                    </p>
+                    <p style="font-size: 14px; margin: 0;">
+                        <strong>Reason:</strong> Highest accuracy in classifying specific attack types. Superior at capturing complex patterns 
+                        and relationships between attack characteristics. Faster inference with minimal memory footprint.
+                    </p>
+                </div>
+
+                <h4>Feature Pipeline</h4>
+                <p style="font-size: 14px; margin-bottom: 1rem;">
+                    <strong>Hard-Coded Feature Selection:</strong> Exactly 40 numeric features extracted from 
+                    network traffic data (selected from training data analysis)
                 </p>
+                <p style="font-size: 14px; margin-bottom: 1rem;">
+                    <strong>Normalization:</strong> StandardScaler applied to ensure features are on similar scales 
+                    (mean=0, standard deviation=1)
+                </p>
+                <p style="font-size: 14px; margin-top: 0.5rem;">
+                    <strong>Processing Steps:</strong> Data validation → Duplicate removal → Missing value handling → 
+                    Feature selection → StandardScaler normalization → Prediction
+                </p>
+
+                <div style="background: rgba(255, 193, 7, 0.1); padding: 12px; border-radius: 8px; margin-top: 1.5rem; border-left: 4px solid #FFC107;">
+                    <p style="font-size: 13px; margin: 0; color: #856404;">
+                        <strong>📌 Note:</strong> No PCA (Principal Component Analysis) is applied in production. 
+                        Hard-coded 40 features provide consistent, reproducible predictions. PCA was used during training analysis only.
+                    </p>
+                </div>
             </div>
         </div>
 
@@ -348,7 +534,7 @@
 
     <!-- Footer -->
     <div class="footer-custom">
-        <p>© 2025 Dual Model IDS Web System | Advanced Network Attack Detection Architecture</p>
+        <p>© 2025 Dual Model IDS Web System - Burak Doğan | Advanced Network Attack Detection Architecture</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

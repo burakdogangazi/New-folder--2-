@@ -1,4 +1,4 @@
-# IDS Web System - Deployment Guide
+# IDS Web System - Burak Doğan - Deployment Guide
 
 ## 🚀 Deployment Rehberi
 
@@ -120,7 +120,7 @@ docker-compose up -d
 
 ```ini
 [Unit]
-Description=IDS Web System
+Description=IDS Web System - Burak Doğan
 After=network.target
 
 [Service]
