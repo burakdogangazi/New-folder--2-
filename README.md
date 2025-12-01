@@ -9,9 +9,9 @@ A Flask web application that implements a dual-model machine learning system for
   - Stage 2: Multiclass classification (Attack type identification)
 
 - **Confidence-Based Decision Routing**
-  - HIGH (>85%): Immediate blocking + SIEM alerts + SOC notification
-  - MEDIUM (60-85%): Rate limiting + Analyst queue + Threat enrichment
-  - LOW (<60%): Routine logging + Retraining dataset
+  - HIGH (>90%): Immediate blocking + SIEM alerts + SOC notification
+  - MEDIUM (70-90%): Rate limiting + Analyst queue + Threat enrichment
+  - LOW (<70%): Routine logging + Retraining dataset
 
 - **Modern Web Interface**
   - Bootstrap 5 responsive design
