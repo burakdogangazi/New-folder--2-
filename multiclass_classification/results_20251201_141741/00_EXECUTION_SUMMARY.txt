@@ -1,0 +1,42 @@
+
+MULTICLASS ATTACK CLASSIFICATION RESULTS
+
+Attack Classes: 7
+Attack Types: bruteforce, ddos, dos, malware, mitm, recon, web
+
+Total Models Trained: 6
+Models: LOG_REG, RF, LGB, MLP, KNN, NB
+
+Best Performing Model: LGB
+Best F1-Score (Macro): 0.9656
+
+Results Location: c:\Users\burakdogan\Desktop\Yapay Zeka Proje\multiclass_classification\results_20251201_141741
+
+Generated Files:
+- 01_metrics_summary_all_models.csv: Comprehensive metrics for all models
+- 02_best_model_report.txt: Detailed analysis of the best model
+- 03_models_comparison_metrics.png: Performance metrics comparison
+- 04_f1_score_ranking.png: Model ranking by F1-score
+- 05_metrics_heatmap.png: Metrics heatmap visualization
+
+Model-Specific Outputs:
+
+  LOG_REG:
+    - log_reg_confusion_matrix.png
+
+  RF:
+    - rf_confusion_matrix.png
+
+  LGB:
+    - lgb_confusion_matrix.png
+
+  MLP:
+    - mlp_confusion_matrix.png
+
+  KNN:
+    - knn_confusion_matrix.png
+
+  NB:
+    - nb_confusion_matrix.png
+
+======================================================================
