@@ -1,0 +1,50 @@
+
+======================================================================
+MULTICLASS ATTACK CLASSIFICATION - BEST MODEL REPORT
+======================================================================
+
+Execution Timestamp: 20251217_182237
+Best Model: LGB
+Results Location: multiclass_classification\ica\results_20251217_182237\best_multiclass_model_lgb.pkl
+Production Location: data\models\best_multiclass_attack_classification_model.pkl
+Attack Classes: bruteforce, ddos, dos, malware, mitm, recon, web
+Total Classes: 7
+
+======================================================================
+MODEL PERFORMANCE METRICS
+======================================================================
+
+Accuracy (overall):         0.9282
+Precision (macro):          0.9368
+Recall (macro):             0.9114
+F1-Score (macro):           0.9216
+F1-Score (weighted):        0.9285
+
+Confusion Matrix Shape: (7, 7)
+
+======================================================================
+CLASSIFICATION REPORT
+======================================================================
+
+              precision    recall  f1-score   support
+
+  bruteforce     0.9596    0.7895    0.8663      1805
+        ddos     0.9608    0.8780    0.9175      7500
+         dos     0.9572    0.9209    0.9387      7500
+     malware     0.9581    0.9551    0.9566      7253
+        mitm     0.9549    0.9483    0.9516      7500
+       recon     0.8232    0.9799    0.8947      7500
+         web     0.9441    0.9086    0.9260      2712
+
+    accuracy                         0.9282     41770
+   macro avg     0.9368    0.9114    0.9216     41770
+weighted avg     0.9328    0.9282    0.9285     41770
+
+
+======================================================================
+BEST MODEL HYPERPARAMETERS
+======================================================================
+
+{'n_estimators': [100, 200, 300], 'max_depth': [5, 10, 15, -1], 'learning_rate': [0.01, 0.05, 0.1], 'num_leaves': [20, 30, 40, 50], 'min_data_in_leaf': [10, 20, 30], 'feature_fraction': [0.8, 0.9, 1.0], 'bagging_fraction': [0.8, 0.9, 1.0]}
+
+======================================================================

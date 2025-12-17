@@ -1,0 +1,46 @@
+
+======================================================================
+BINARY INTRUSION DETECTION - BEST MODEL REPORT
+======================================================================
+
+Execution Timestamp: 20251217_182156
+Best Model: LGB
+Results Location: binary_classification\raw\results_20251217_182156\best_binary_model_lgb.pkl
+Production Location: data\models\best_binary_classification_model.pkl
+
+======================================================================
+MODEL PERFORMANCE METRICS
+======================================================================
+
+Accuracy:       0.9575
+Precision:      0.9964
+Recall:         0.9183
+Specificity:    0.9967
+F1-Score:       0.9558
+ROC-AUC:        0.9816
+
+Confusion Matrix:
+[[41632   138]
+ [ 3412 38358]]
+
+======================================================================
+CLASSIFICATION REPORT
+======================================================================
+
+              precision    recall  f1-score   support
+
+      Benign     0.9243    0.9967    0.9591     41770
+      Attack     0.9964    0.9183    0.9558     41770
+
+    accuracy                         0.9575     83540
+   macro avg     0.9603    0.9575    0.9574     83540
+weighted avg     0.9603    0.9575    0.9574     83540
+
+
+======================================================================
+BEST MODEL HYPERPARAMETERS
+======================================================================
+
+{'n_estimators': [100, 200, 300], 'max_depth': [5, 10, 15, -1], 'learning_rate': [0.01, 0.05, 0.1], 'num_leaves': [20, 30, 40, 50], 'min_data_in_leaf': [10, 20, 30], 'feature_fraction': [0.8, 0.9, 1.0], 'bagging_fraction': [0.8, 0.9, 1.0]}
+
+======================================================================

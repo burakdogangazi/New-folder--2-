@@ -1,0 +1,46 @@
+
+======================================================================
+BINARY INTRUSION DETECTION - BEST MODEL REPORT
+======================================================================
+
+Execution Timestamp: 20251217_191836
+Best Model: RF
+Results Location: binary_classification\pca\results_20251217_191836\best_binary_model_rf.pkl
+Production Location: data\models\best_binary_classification_model.pkl
+
+======================================================================
+MODEL PERFORMANCE METRICS
+======================================================================
+
+Accuracy:       0.9494
+Precision:      0.9885
+Recall:         0.9094
+Specificity:    0.9894
+F1-Score:       0.9473
+ROC-AUC:        0.9768
+
+Confusion Matrix:
+[[41327   443]
+ [ 3786 37984]]
+
+======================================================================
+CLASSIFICATION REPORT
+======================================================================
+
+              precision    recall  f1-score   support
+
+      Benign     0.9161    0.9894    0.9513     41770
+      Attack     0.9885    0.9094    0.9473     41770
+
+    accuracy                         0.9494     83540
+   macro avg     0.9523    0.9494    0.9493     83540
+weighted avg     0.9523    0.9494    0.9493     83540
+
+
+======================================================================
+BEST MODEL HYPERPARAMETERS
+======================================================================
+
+{'n_estimators': [50, 100, 200], 'max_depth': [10, 20, 30, None], 'min_samples_split': [2, 5, 10], 'min_samples_leaf': [1, 2, 4], 'max_features': ['sqrt'], 'class_weight': [None, 'balanced']}
+
+======================================================================
