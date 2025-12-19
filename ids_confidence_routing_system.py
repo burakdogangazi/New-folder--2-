@@ -52,6 +52,7 @@ class TrafficSample:
     attack_probability: float = None
     attack_confidence_level: str = None  # "CONFIRMED" (HIGH) or "POSSIBLE" (MEDIUM)
     confidence_level: ConfidenceLevel = None
+    combined_probability: float = None  # Combined score: 0.7*binary + 0.3*multiclass (if available)
 
 
 @dataclass
@@ -100,16 +101,13 @@ class ConfidenceBasedRouter:
     
     def __init__(self, 
                  high_confidence_threshold: float = 0.85,
-                 medium_confidence_threshold: float = 0.60):
-        """
-        Initialize router with confidence thresholds.
-        
-        Parameters
-        ----------
-        high_confidence_threshold : float
-            Threshold for high-confidence decisions (default: 90%)
-        medium_confidence_threshold : float
-            Threshold for medium-confidence decisions (default: 70%)
+                 medium_confidence_threshold: float = 0.70):
+        """Initialize router with confidence thresholds.
+
+        Threshold semantics used by this system:
+        - HIGH (CRITICAL): score >= high_confidence_threshold (default 0.85)
+        - MEDIUM (HIGH/WARNING): medium_confidence_threshold <= score < high_confidence_threshold (default 0.70-0.84)
+        - LOW (INFO): score < medium_confidence_threshold
         """
         self.high_threshold = high_confidence_threshold
         self.medium_threshold = medium_confidence_threshold
@@ -154,13 +152,10 @@ class ConfidenceBasedRouter:
             List of immediate actions to take
         """
         actions = [
-            f"[CRITICAL] Immediate automated blocking at network perimeter",
-            f"[ALERT] SIEM alert: {sample.attack_type} attack detected (Confidence: {(sample.attack_probability if sample.attack_probability is not None else 0):.2%})",
-            f"[TICKET] Incident ticket creation: {sample.attack_type} - Sample ID: {sample.sample_id}",
-            f"[SOC] Security Operations Center notification - Immediate action required",
-            f"[BLOCK] IP/Port blocking rules deployed",
-            f"[FORENSICS] Enable packet capture for forensic analysis",
-            f"[ISOLATION] Network segment isolation if applicable"
+            "BLOCK_IP: Block source IP in firewall",
+            "KILL_SESSION: Terminate current TCP session (TCP reset)",
+            f"SIEM_ALERT_CRITICAL: Send CRITICAL alert to SOC (sample={sample.sample_id})",
+            "API_BAN: Suspend API key if API traffic detected"
         ]
         return actions
     
@@ -182,14 +177,10 @@ class ConfidenceBasedRouter:
             List of investigation and containment actions
         """
         actions = [
-            f"[WARNING] Traffic logging with elevated priority",
-            f"[ANALYSIS] Sandbox analysis initiated for: {sample.attack_type}",
-            f"[RATE_LIMIT] Temporary rate limiting applied (threshold: 50% of normal)",
-            f"[ALERT] Tier-1 security analyst alert - Confidence: {(sample.attack_probability if sample.attack_probability is not None else 0):.2%}",
-            f"[THREAT_INTEL] Enrichment with threat intelligence feeds in progress",
-            f"[MONITOR] Enhanced monitoring enabled for source IP",
-            f"[QUEUE] Queued for incident review by security team",
-            f"[SAMPLE_STORE] Store full packet capture for later analysis"
+            "THROTTLE/RATE_LIMIT: Reduce request rate for source IP",
+            "REDIRECT_HONEYPOT: Redirect traffic to sandbox/honeypot for observation",
+            "CAPTURE_PCAP: Start packet capture for forensics",
+            f"JIRA_TICKET: Open analyst review ticket (sample={sample.sample_id})"
         ]
         return actions
     
@@ -211,12 +202,9 @@ class ConfidenceBasedRouter:
             List of routine logging and monitoring actions
         """
         actions = [
-            f"[INFO] Standard logging for baseline monitoring",
-            f"[SAMPLE] Periodic sampling (1/1000) for quality assurance",
-            f"[TRAINING] Include in model retraining dataset",
-            f"[NO_ALERT] No immediate operational impact",
-            f"[ROUTINE] Routine network flow logging only",
-            f"[STATS] Update baseline traffic statistics"
+            "LOG_ONLY: Record as suspicious activity but allow traffic",
+            "TAG_FOR_RETRAINING: Mark sample as 'models disagreed' for retraining",
+            "NO_ACTION: Do not interrupt user experience or take blocking actions"
         ]
         return actions
     
@@ -235,34 +223,34 @@ class ConfidenceBasedRouter:
             Structured routing decision with appropriate actions
         """
         # Determine confidence level
-        # Use attack_probability if available (Stage 2 ran), otherwise use binary_probability
-        if sample.binary_prediction == "Attack" and sample.attack_probability is not None:
+        # Preference order:
+        # 1) If Stage-2 ran and combined_probability exists -> use combined (0.7*binary + 0.3*multi)
+        # 2) Else if Stage-2 ran and attack_probability exists -> use attack_probability
+        # 3) Else -> use binary_probability
+        if sample.binary_prediction == "Attack" and sample.combined_probability is not None:
+            confidence_score = sample.combined_probability
+        elif sample.binary_prediction == "Attack" and sample.attack_probability is not None:
             confidence_score = sample.attack_probability
         else:
             confidence_score = sample.binary_probability
         
         confidence_level = self.classify_confidence(confidence_score)
         
-        # Determine priority
-        priority_map = {
-            ConfidenceLevel.HIGH: ActionPriority.CRITICAL,
-            ConfidenceLevel.MEDIUM: ActionPriority.HIGH,
-            ConfidenceLevel.LOW: ActionPriority.INFO
-        }
-        priority = priority_map[confidence_level]
-        
-        # Get appropriate actions and classification
-        # If LOW confidence (below 60%), treat as BENIGN regardless of prediction
+        # Determine priority mapping and apply actions per the requested policy
         if confidence_level == ConfidenceLevel.HIGH:
+            priority = ActionPriority.CRITICAL
             actions = self.get_high_confidence_actions(sample)
-            classification = f"CONFIRMED_ATTACK: {sample.attack_type}"
+            classification = "CRITICAL: Immediate Active Response"
         elif confidence_level == ConfidenceLevel.MEDIUM:
+            priority = ActionPriority.HIGH
             actions = self.get_medium_confidence_actions(sample)
-            classification = f"SUSPICIOUS: Possible {sample.attack_type}"
-        else:  # LOW - treat as BENIGN
+            classification = "HIGH_WARNING: Investigative Response"
+        else:  # LOW
+            priority = ActionPriority.INFO
             actions = self.get_low_confidence_actions(sample)
-            classification = "BENIGN"
-            sample.attack_type = None  # Clear attack type for benign classification
+            # If LOW but binary predicted Attack, still tag for retraining but do not block
+            classification = "INFO_LOW: Monitoring"
+            sample.attack_type = None  # Clear attack type for benign/monitoring classification
         
         # Create routing decision
         decision = RoutingDecision(
@@ -320,8 +308,9 @@ class DualModelIDS:
         self.pca = joblib.load(pca_model_path) if pca_model_path else None
         
         # Initialize router
+        # Use thresholds aligned with system policy: CRITICAL >=0.85, HIGH>=0.70
         self.router = ConfidenceBasedRouter(
-            high_confidence_threshold=0.90,
+            high_confidence_threshold=0.85,
             medium_confidence_threshold=0.70
         )
         
@@ -393,6 +382,7 @@ class DualModelIDS:
         attack_type = None
         attack_confidence = None
         attack_confidence_level = None  # "CONFIRMED" for HIGH, "POSSIBLE" for MEDIUM
+        combined_score = None
         
         if label == "Attack" and binary_confidence >= 0.70:  # Run Stage 2 if >=70% confidence
             multiclass_pred = self.multiclass_model.predict(features.reshape(1, -1))[0]
@@ -400,6 +390,11 @@ class DualModelIDS:
             
             attack_type = multiclass_pred
             attack_confidence = np.max(multiclass_proba)
+            # Combined confidence using weighted formula (0.7 * binary + 0.3 * multiclass)
+            try:
+                combined_score = 0.7 * float(binary_confidence) + 0.3 * float(attack_confidence)
+            except Exception:
+                combined_score = None
             
             # Mark as CONFIRMED (HIGH >90%) or POSSIBLE (MEDIUM 70-90%)
             if binary_confidence >= 0.90:
@@ -416,7 +411,8 @@ class DualModelIDS:
             binary_probability=binary_confidence,
             attack_type=attack_type,
             attack_probability=attack_confidence,
-            attack_confidence_level=attack_confidence_level
+            attack_confidence_level=attack_confidence_level,
+            combined_probability=combined_score
         )
         
         return sample
