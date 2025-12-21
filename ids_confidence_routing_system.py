@@ -1,10 +1,11 @@
 """
-Dual-Model IDS with Deep Inspection & Weighted Scoring Logic
+Dual-Model IDS with Deep Inspection & Audience-Based Response Logic
 
-This module implements a production-ready intrusion detection system architecture.
-Key Changes:
-- Renamed 'ActionPriority' to 'ResponseAction' to reflect actual system behavior.
-- Benign traffic now maps to 'ALLOW' action, not a weird priority level.
+Architecture:
+1. Deep Inspection: If Binary predicts 'Attack', ALWAYS run Stage 2 (Multiclass).
+2. Weighted Scoring: Final Score = (0.7 * Binary_Conf) + (0.3 * Multi_Conf).
+3. Safe Thresholding: Benign traffic is split into 'Verified Safe' and 'Anomalies'.
+4. Distinct Actions: Low confidence Attack vs Low confidence Benign have different handling.
 """
 
 import pandas as pd
@@ -18,46 +19,49 @@ from dataclasses import dataclass
 from enum import Enum
 
 # ============================================================================
-# 1. TERMINOLOGY (DÜZELTİLMİŞ)
+# 1. NEW TERMINOLOGY & ENUMS
 # ============================================================================
 
 class ConfidenceLevel(Enum):
     """
-    Defines how much we trust the detection (Fidelity).
+    Defines the fidelity/certainty of the detection.
     """
-    CONFIRMED = "CONFIRMED"     # Score >= 0.85 (Both models agree strongly)
-    SUSPICIOUS = "SUSPICIOUS"   # Score 0.70 - 0.84 (Strong suspicion)
-    UNCERTAIN = "UNCERTAIN"     # Score < 0.70 (Binary said Attack, but Score is low)
-    SAFE = "SAFE"               # Binary model predicted Benign
+    CONFIRMED = "CONFIRMED"     # Score >= 0.85 (High Fidelity Threat)
+    SUSPICIOUS = "SUSPICIOUS"   # Score 0.70 - 0.84 (Medium Fidelity Threat)
+    UNCERTAIN = "UNCERTAIN"     # Score < 0.70 (Low Fidelity / Gray Zone)
+    SAFE = "SAFE"               # High Confidence Benign
 
 class ResponseAction(Enum):
     """
-    Defines the TYPE of action the system is suggesting.
-    This replaces 'ActionPriority'.
+    Defines the specific operational response type.
+    Differentiates between SOC actions and Data Science actions.
     """
-    BLOCK = "BLOCK"           # Stop the threat (Critical)
-    MITIGATE = "MITIGATE"     # Reduce the risk / Containment (Warning)
-    MONITOR = "MONITOR"       # Watch and Learn (Info)
-    ALLOW = "ALLOW"           # Let it pass (Benign)
+    BLOCK = "BLOCK"                 # Critical Threat -> Stop immediately.
+    MITIGATE = "MITIGATE"           # High Risk -> Contain/Throttle.
+    LOG_SUSPICIOUS = "LOG_SUSPICIOUS" # Attack (Low Conf) -> Log for SOC (Potential False Positive).
+    FLAG_ANOMALY = "FLAG_ANOMALY"   # Benign (Low Conf) -> Flag for Retraining (Potential False Negative).
+    ALLOW = "ALLOW"                 # Benign (High Conf) -> Pass traffic.
 
 @dataclass
 class TrafficSample:
+    """Represents a processed network traffic sample."""
     sample_id: str
     timestamp: datetime
     features: np.ndarray
-    binary_prediction: str
+    binary_prediction: str      # "Attack" or "Benign"
     binary_probability: float
     attack_type: Optional[str] = None
     multiclass_probability: Optional[float] = None
-    combined_score: Optional[float] = None
+    combined_score: Optional[float] = None  # The Final Weighted Score
 
 @dataclass
 class RoutingDecision:
+    """Final decision object containing specific security actions."""
     sample_id: str
     timestamp: datetime
     confidence_level: ConfidenceLevel
-    suggested_response: ResponseAction  # İSİM DEĞİŞTİ: priority -> suggested_response
-    classification: str
+    suggested_response: ResponseAction
+    classification: str         # Human readable status text
     final_score: float
     actions: List[str]
 
@@ -68,13 +72,23 @@ class RoutingDecision:
                 f"Score={self.final_score:.4f})")
 
 # ============================================================================
-# 2. ROUTING LOGIC (ACTION ORIENTED)
+# 2. CONFIDENCE-BASED ROUTER
 # ============================================================================
 
 class ConfidenceBasedRouter:
-    def __init__(self, critical_threshold: float = 0.85, warning_threshold: float = 0.70):
+    """
+    Routes decisions based on scores and thresholds.
+    Handles the 'Gray Zone' by splitting actions for low-confidence predictions.
+    """
+    
+    def __init__(self, 
+                 critical_threshold: float = 0.85, 
+                 warning_threshold: float = 0.70,
+                 safe_threshold: float = 0.80): # YENİ: Temiz trafik için güven eşiği
+        
         self.critical_threshold = critical_threshold
         self.warning_threshold = warning_threshold
+        self.safe_threshold = safe_threshold
         self.decisions_log = []
 
     def get_specific_actions(self, response: ResponseAction, sample_id: str) -> List[str]:
@@ -82,125 +96,188 @@ class ConfidenceBasedRouter:
         
         if response == ResponseAction.BLOCK:
             return [
-                "FIREWALL: Add source IP to Blocklist",
-                "NETWORK: Send TCP Reset (RST)",
+                "FIREWALL: Add Source IP to Blocklist",
+                "SESSION: Terminate TCP Connection (RST)",
                 f"SIEM: Critical Alert (ID: {sample_id})"
             ]
         
         elif response == ResponseAction.MITIGATE:
             return [
-                "TRAFFIC: Rate Limit / Throttle bandwidth",
-                "ROUTING: Redirect to Honeypot/Sandbox",
-                "FORENSICS: Trigger Full Packet Capture"
+                "TRAFFIC: Apply Rate Limiting (Throttle)",
+                "ROUTING: Redirect to Honeypot Environment",
+                "FORENSICS: Enable Full Packet Capture"
             ]
             
-        elif response == ResponseAction.MONITOR:
+        elif response == ResponseAction.LOG_SUSPICIOUS:
+            # Context: Model said Attack, but score is low.
+            # Target: SOC Analysts
             return [
-                "LOGGING: Log event with 'Low Confidence' tag",
-                "DATASET: Mark sample for retraining",
-                "STATUS: No active blocking performed"
+                "LOGGING: Record in 'Suspicious Events' Database",
+                "SIEM: Send INFO-Level Notification (No PagerDuty)",
+                "STATUS: Pass Traffic (Potential False Positive - Monitor)"
+            ]
+            
+        elif response == ResponseAction.FLAG_ANOMALY:
+            # Context: Model said Benign, but score is low.
+            # Target: Data Science / MLOps
+            return [
+                "STATUS: Pass Traffic (To avoid False Positives)",
+                "FORENSICS: TRIGGER_PCAP (Capture Full Packets for Zero-Day Analysis)",
+                "DATASET: Tag as 'Unknown Pattern' for Analyst Review",
+                "METRICS: Increment 'Anomaly' Counter"
             ]
             
         else: # ALLOW
             return [
-                "FIREWALL: Allow traffic flow",
-                "LOGGING: Update normal traffic metrics"
+                "FIREWALL: Allow Traffic Flow",
+                "METRICS: Update Normal Traffic Counters"
             ]
 
     def route_decision(self, sample: TrafficSample) -> RoutingDecision:
         
         # --- PATH 1: BENIGN TRAFFIC ---
         if sample.binary_prediction == "Benign":
-            return RoutingDecision(
-                sample_id=sample.sample_id,
-                timestamp=sample.timestamp,
-                confidence_level=ConfidenceLevel.SAFE,
-                suggested_response=ResponseAction.ALLOW,  # Bening -> ALLOW (Mantıklı olan bu)
-                classification="NORMAL_TRAFFIC",
-                final_score=sample.binary_probability,
-                actions=self.get_specific_actions(ResponseAction.ALLOW, sample.sample_id)
-            )
+            score = sample.binary_probability
+            
+            if score >= self.safe_threshold:
+                # CASE: HIGH CONFIDENCE BENIGN -> ALLOW
+                return RoutingDecision(
+                    sample_id=sample.sample_id,
+                    timestamp=sample.timestamp,
+                    confidence_level=ConfidenceLevel.SAFE,
+                    suggested_response=ResponseAction.ALLOW,
+                    classification="NORMAL_TRAFFIC_VERIFIED",
+                    final_score=score,
+                    actions=self.get_specific_actions(ResponseAction.ALLOW, sample.sample_id)
+                )
+            else:
+                # CASE: LOW CONFIDENCE BENIGN -> FLAG_ANOMALY
+                # "Model temiz dedi ama zar attı (%51-%79 arası)"
+                return RoutingDecision(
+                    sample_id=sample.sample_id,
+                    timestamp=sample.timestamp,
+                    confidence_level=ConfidenceLevel.UNCERTAIN,
+                    suggested_response=ResponseAction.FLAG_ANOMALY,
+                    classification="BENIGN_ANOMALY_DETECTED",
+                    final_score=score,
+                    actions=self.get_specific_actions(ResponseAction.FLAG_ANOMALY, sample.sample_id)
+                )
 
-        # --- PATH 2: ATTACK TRAFFIC (Weighted Scoring) ---
+        # --- PATH 2: ATTACK TRAFFIC ---
+        # Calculate Weighted Score
         score = sample.combined_score if sample.combined_score is not None else 0.0
         attack_str = sample.attack_type if sample.attack_type else "Unknown"
         
-        # Determine Response Action based on Score
         if score >= self.critical_threshold:
-            # CONFIRMED -> BLOCK
-            conf_level = ConfidenceLevel.CONFIRMED
-            response = ResponseAction.BLOCK
-            cls_text = f"THREAT_CONFIRMED: {attack_str}"
+            # CASE: CONFIRMED ATTACK -> BLOCK
+            return RoutingDecision(
+                sample_id=sample.sample_id,
+                timestamp=sample.timestamp,
+                confidence_level=ConfidenceLevel.CONFIRMED,
+                suggested_response=ResponseAction.BLOCK,
+                classification=f"THREAT_CONFIRMED: {attack_str}",
+                final_score=score,
+                actions=self.get_specific_actions(ResponseAction.BLOCK, sample.sample_id)
+            )
             
         elif score >= self.warning_threshold:
-            # SUSPICIOUS -> MITIGATE
-            conf_level = ConfidenceLevel.SUSPICIOUS
-            response = ResponseAction.MITIGATE
-            cls_text = f"THREAT_SUSPECTED: {attack_str}"
+            # CASE: SUSPICIOUS ATTACK -> MITIGATE
+            return RoutingDecision(
+                sample_id=sample.sample_id,
+                timestamp=sample.timestamp,
+                confidence_level=ConfidenceLevel.SUSPICIOUS,
+                suggested_response=ResponseAction.MITIGATE,
+                classification=f"THREAT_SUSPECTED: {attack_str}",
+                final_score=score,
+                actions=self.get_specific_actions(ResponseAction.MITIGATE, sample.sample_id)
+            )
             
         else:
-            # UNCERTAIN -> MONITOR (Binary said attack, but score is low)
-            conf_level = ConfidenceLevel.UNCERTAIN
-            response = ResponseAction.MONITOR
-            cls_text = "THREAT_UNCERTAIN: False Positive Likely"
-
-        # Create Decision
-        decision = RoutingDecision(
-            sample_id=sample.sample_id,
-            timestamp=sample.timestamp,
-            confidence_level=conf_level,
-            suggested_response=response,
-            classification=cls_text,
-            final_score=score,
-            actions=self.get_specific_actions(response, sample.sample_id)
-        )
-        
-        self.decisions_log.append(decision)
-        return decision
+            # CASE: LOW CONFIDENCE ATTACK -> LOG_SUSPICIOUS
+            # "Model saldırı dedi ama uzman onaylamadı/emin değil"
+            return RoutingDecision(
+                sample_id=sample.sample_id,
+                timestamp=sample.timestamp,
+                confidence_level=ConfidenceLevel.UNCERTAIN,
+                suggested_response=ResponseAction.LOG_SUSPICIOUS,
+                classification="THREAT_UNCERTAIN_NOISE",
+                final_score=score,
+                actions=self.get_specific_actions(ResponseAction.LOG_SUSPICIOUS, sample.sample_id)
+            )
 
 # ============================================================================
 # 3. DUAL-MODEL IDS SYSTEM
 # ============================================================================
 
 class DualModelIDS:
-    def __init__(self, binary_model_path, multiclass_model_path, scaler_path=None):
+    """
+    Production-ready Intrusion Detection System.
+    """
+    
+    def __init__(self, 
+                 binary_model_path: str,
+                 multiclass_model_path: str,
+                 scaler_path: str = None,
+                 pca_model_path: str = None):
+        
+        # Load resources
+        print("Loading models and preprocessors...")
         self.binary_model = joblib.load(binary_model_path)
         self.multiclass_model = joblib.load(multiclass_model_path)
         self.scaler = joblib.load(scaler_path) if scaler_path else None
+        self.pca = joblib.load(pca_model_path) if pca_model_path else None
         
-        # Initialize Router
-        self.router = ConfidenceBasedRouter(critical_threshold=0.85, warning_threshold=0.70)
+        # Initialize Router with Defined Thresholds
+        self.router = ConfidenceBasedRouter(
+            critical_threshold=0.85, 
+            warning_threshold=0.70,
+            safe_threshold=0.80
+        )
+        self.predictions_cache = []
     
-    def preprocess(self, raw_features):
+    def preprocess_features(self, raw_features: np.ndarray) -> np.ndarray:
+        """Preprocess raw network features."""
         features = raw_features.reshape(1, -1)
         if self.scaler:
             features = self.scaler.transform(features)
+        if self.pca:
+            features = self.pca.transform(features)
         return features[0]
     
-    def predict_sample(self, sample_id, raw_features) -> TrafficSample:
-        features = self.preprocess(raw_features)
+    def predict_sample(self, sample_id: str, raw_features: np.ndarray) -> TrafficSample:
+        """
+        Executes Deep Inspection Logic.
+        """
+        features = self.preprocess_features(raw_features)
         
-        # Stage 1: Binary
-        bin_pred = self.binary_model.predict([features])[0] # 0=Benign, 1=Attack
-        bin_proba = self.binary_model.predict_proba([features])[0]
+        # --- STAGE 1: Binary Classification ---
+        bin_pred = self.binary_model.predict(features.reshape(1, -1))[0]
+        bin_probs = self.binary_model.predict_proba(features.reshape(1, -1))[0]
         
+        # Assuming index 1 is Attack, 0 is Benign
         label = "Attack" if bin_pred == 1 else "Benign"
-        # Assuming index 1 is Attack
-        bin_conf = bin_proba[1] if bin_pred == 1 else bin_proba[0]
+        bin_conf = bin_probs[1] if bin_pred == 1 else bin_probs[0]
 
         attack_type = None
         multi_conf = None
         combined_score = None
 
-        # Stage 2: Always check Multiclass if Attack detected
+        # --- STAGE 2: Deep Inspection (Always run if Attack detected) ---
         if label == "Attack":
-            attack_type = self.multiclass_model.predict([features])[0]
-            multi_probs = self.multiclass_model.predict_proba([features])[0]
+            multi_pred = self.multiclass_model.predict(features.reshape(1, -1))[0]
+            multi_probs = self.multiclass_model.predict_proba(features.reshape(1, -1))[0]
+            
+            attack_type = multi_pred
             multi_conf = np.max(multi_probs)
             
-            # Weighted Score Calculation
-            combined_score = (0.7 * bin_conf) + (0.3 * multi_conf)
-            combined_score = round(combined_score, 4)
+            # Weighted Scoring Formula
+            # 70% Binary Confidence + 30% Multiclass Confidence
+            try:
+                combined_score = (0.7 * float(bin_conf)) + (0.3 * float(multi_conf))
+                combined_score = round(combined_score, 4)
+            except Exception as e:
+                logging.error(f"Scoring error: {e}")
+                combined_score = bin_conf # Fallback
 
         return TrafficSample(
             sample_id=sample_id,
@@ -212,7 +289,13 @@ class DualModelIDS:
             multiclass_probability=multi_conf,
             combined_score=combined_score
         )
-
-    def detect_and_route(self, sample_id, raw_features):
+    
+    def detect_and_route(self, sample_id: str, raw_features: np.ndarray) -> RoutingDecision:
+        """Public interface."""
         sample = self.predict_sample(sample_id, raw_features)
-        return self.router.route_decision(sample)
+        decision = self.router.route_decision(sample)
+        
+        # Cache for reporting
+        self.predictions_cache.append({'sample': sample, 'decision': decision})
+        
+        return decision
